@@ -1,5 +1,7 @@
 # Home Maintenance Manager Card
 
+![Home Maintenance Manager Card](https://raw.githubusercontent.com/kraroed/lovelace-home-maintenance-manager-card/main/images/home-maintenance-manager-card.svg)
+
 A custom Home Assistant Lovelace card for the [Home Maintenance Manager integration](https://github.com/kraroed/home-maintenance-manager).
 
 The card provides a household maintenance overview with task status, due dates, equipment, completion history, and interactive maintenance actions.
