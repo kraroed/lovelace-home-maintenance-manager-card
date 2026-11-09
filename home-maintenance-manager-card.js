@@ -1,5 +1,5 @@
 /* Home Maintenance Manager Lovelace card
- * Copy this file to /config/www/home-maintenance-manager-card.js
+ * Install through HACS Dashboard or use the manual installation instructions in README.md.
  */
 class HomeMaintenanceManagerCard extends HTMLElement {
   setConfig(config) {
