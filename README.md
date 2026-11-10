@@ -25,6 +25,7 @@ The card provides a household maintenance overview with task status, due dates, 
 - Export permanent completion history as CSV, JSON, or both directly from the card.
 - Create a protected JSON property backup directly from the card; restore preview and confirmation remain available through the integration's Developer Tools actions.
 - Automatic discovery of Home Maintenance Manager entities; individual entity IDs are not required.
+- Responsive mobile layout with stacked task cards, full-width action forms, easier-to-tap controls, and single-column task details on narrow screens.
 - Supports multiple Home Maintenance Manager configuration entries.
 
 ## Requirements
