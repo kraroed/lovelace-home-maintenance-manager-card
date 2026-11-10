@@ -11,6 +11,8 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     };
     if (this._filter === undefined) this._filter = "all";
     if (this._category === undefined) this._category = "all";
+    if (this._taskSearch === undefined) this._taskSearch = "";
+    if (this._selectedEquipmentId === undefined) this._selectedEquipmentId = null;
     if (this._equipmentTask === undefined) this._equipmentTask = null;
     if (this._detailTaskKey === undefined) this._detailTaskKey = null;
     if (this._view === undefined) this._view = "list";
@@ -299,10 +301,10 @@ class HomeMaintenanceManagerCard extends HTMLElement {
         ? linked.find(({ state }) => state.attributes?.task_id === attrs.replacement_task_id)
         : null;
       const taskMarkup = linked.length
-        ? linked.map((item) => this._renderTask(item, equipment)).join("")
+        ? linked.map((item) => `<div class="equipment-linked-task">${this._renderTask(item, equipment)}<button class="equipment-task-open" data-task-id="${this._escape(item.state.attributes?.task_id)}">Open in task list</button></div>`).join("")
         : '<div class="empty equipment-empty">No active maintenance tasks are linked to this equipment.</div>';
       return `
-        <article class="equipment-card">
+        <article class="equipment-card ${this._selectedEquipmentId === `${instance}:${attrs.equipment_id}` ? "selected" : ""}" data-equipment-card="${this._escape(`${instance}:${attrs.equipment_id}`)}">
           <div class="equipment-card-header">
             <div><h3>${this._escape(attrs.friendly_name || entry.state)}</h3>
               ${metadata ? '<div class="equipment-meta">' + this._escape(metadata) + '</div>' : ''}
@@ -463,8 +465,8 @@ class HomeMaintenanceManagerCard extends HTMLElement {
       (attrs.equipment_ids || []).includes(entry.attributes.equipment_id) &&
       (entry.attributes.integration_instance || "default") === (attrs.integration_instance || "default")
     );
-    const equipmentNames = linkedEquipment.length
-      ? linkedEquipment.map((entry) => this._escape(entry.attributes.friendly_name || entry.state)).join(", ")
+    const equipmentMarkup = linkedEquipment.length
+      ? linkedEquipment.map((entry) => `<button class="equipment-task" data-equipment-id="${this._escape(`${entry.attributes.integration_instance || "default"}:${entry.attributes.equipment_id}`)}">${this._escape(entry.attributes.friendly_name || entry.state)}</button>`).join("")
       : "None linked";
     const history = [...(attrs.completion_history || [])].reverse();
     const scheduleHistory = [...(attrs.schedule_history || [])].reverse();
@@ -496,7 +498,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
       <div><span>Last completed</span><strong>${this._escape(this._date(attrs.last_completed))}</strong></div>
       <div><span>Next due</span><strong>${this._escape(this._date(attrs.next_due))}</strong></div>
       <div><span>Repeat interval</span><strong>${interval}</strong></div>
-      <div><span>Linked equipment</span><strong>${equipmentNames}</strong></div>
+      <div><span>Linked equipment</span><strong>${equipmentMarkup}</strong></div>
       <div class="history-list"><strong>Recent completions</strong>${historyMarkup}</div>
       ${scheduleMarkup}
     </div>`;
@@ -508,14 +510,25 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     const count = (key) => summaries.get(key) ?? "—";
     const categories = [...new Set(tasks.map(({ state }) => state.attributes.category || "General"))].sort();
     const filtered = tasks.filter(({ state }) => {
-      const category = state.attributes.category || "General";
+      const attrs = state.attributes || {};
+      const category = attrs.category || "General";
       if (this._category !== "all" && category !== this._category) return false;
-      if (this._equipmentTask && state.attributes.task_id !== this._equipmentTask) return false;
+      if (this._equipmentTask && attrs.task_id !== this._equipmentTask) return false;
+      if (this._taskSearch.trim()) {
+        const linkedEquipment = equipment.filter((entry) =>
+          (attrs.equipment_ids || []).includes(entry.attributes?.equipment_id) &&
+          (entry.attributes?.integration_instance || "default") === (attrs.integration_instance || "default")
+        );
+        const haystack = [attrs.friendly_name, attrs.task_id, category, attrs.description,
+          ...linkedEquipment.flatMap((entry) => [entry.attributes?.friendly_name, entry.attributes?.manufacturer, entry.attributes?.model])]
+          .filter(Boolean).join(" ").toLowerCase();
+        if (!haystack.includes(this._taskSearch.trim().toLowerCase())) return false;
+      }
       if (this._filter === "all") return true;
       if (this._filter === "upcoming") return ["due_today", "due_soon"].includes(state.state);
       return state.state === this._filter;
     });
-    const categoryMarkup = '<div class="category-filters"><button data-category="all" class="' + (this._category === "all" ? "selected" : "") + '">All categories</button>' + categories.map((category) => '<button data-category="' + this._escape(category) + '" class="' + (this._category === category ? "selected" : "") + '">' + this._escape(category) + '</button>').join("") + '</div>';
+    const categoryMarkup = '<div class="task-search"><input type="search" data-task-search placeholder="Search tasks, categories, or equipment" value="' + this._escape(this._taskSearch) + '" aria-label="Search maintenance tasks"></div><div class="category-filters"><button data-category="all" class="' + (this._category === "all" ? "selected" : "") + '">All categories</button>' + categories.map((category) => '<button data-category="' + this._escape(category) + '" class="' + (this._category === category ? "selected" : "") + '">' + this._escape(category) + '</button>').join("") + '</div>';
     const taskMarkup = filtered.length
       ? filtered.map((item) => this._renderTask(item, equipment)).join("")
       : '<div class="empty">No tasks match this filter.</div>';
@@ -564,6 +577,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
         </div>
         ${this._view === "calendar" ? calendarMarkup : this._view === "agenda" ? this._renderAgenda(tasks, equipment) : this._view === "equipment" ? this._renderEquipmentView(equipment, tasks) : this._view === "history" ? historyMarkup : this._view === "schedule-history" ? this._renderScheduleHistory(historyTasks) : categoryMarkup}
         ${this._equipmentTask ? '<div class="active-filter">Showing selected equipment task <button data-clear-task>Clear</button></div>' : ""}
+        ${this._view === "list" ? `<div class="task-result-count">Showing ${filtered.length} of ${tasks.length} tasks</div>` : ""}
         ${this._view === "list" ? `<div class="tasks">${taskMarkup}</div>` : ""}
         ${this.config.show_equipment && this._view !== "equipment" ? `<section><h3>Equipment <small>${this._escape(count("equipment_count"))} registered</small></h3>${equipmentMarkup}</section>` : ""}
         ${this.config.show_history ? `<footer>Completion history records: <strong>${this._escape(count("history_count"))}</strong></footer>` : ""}
@@ -577,7 +591,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
         .agenda-section{padding:8px 16px 16px}.agenda-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:4px 0 14px}.agenda-overview>div{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 5px;border-radius:9px;background:var(--secondary-background-color)}.agenda-overview strong{font-size:1.25rem}.agenda-overview span{font-size:.72rem;color:var(--secondary-text-color);text-align:center}.agenda-group{margin-top:12px}.agenda-group h3{margin:8px 0}.agenda-date h4{font-size:.88rem;margin:12px 0 2px;color:var(--primary-text-color)}.calendar-section{padding:8px 12px 14px}.calendar-toolbar{display:flex;align-items:center;justify-content:center;gap:12px;padding:6px 0 12px}.calendar-toolbar strong{min-width:150px;text-align:center}.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}.calendar-weekday{text-align:center;font-size:.72rem;color:var(--secondary-text-color);padding:5px 0}.calendar-day{min-width:0;min-height:74px;padding:4px;border:1px solid var(--divider-color);border-radius:7px;background:var(--card-background-color);color:var(--primary-text-color);text-align:left;display:flex;flex-direction:column;gap:3px;cursor:pointer}.calendar-day>strong{font-size:.8rem}.calendar-day.outside{opacity:.42}.calendar-day.selected{outline:2px solid var(--primary-color);background:var(--secondary-background-color)}.calendar-day.has-tasks>strong{color:var(--primary-color)}.calendar-task,.calendar-more{font-size:.62rem;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:3px;background:var(--secondary-background-color);padding:2px}.calendar-more{color:var(--secondary-text-color)}.calendar-selected{padding-top:10px}.calendar-selected h3{margin-bottom:6px}
         .filters{display:flex;gap:6px;padding:0 16px 12px;flex-wrap:wrap}.filters button,.complete{border:0;border-radius:18px;padding:7px 11px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}
         .filters button.selected,.category-filters button.selected{background:var(--primary-color);color:var(--text-primary-color,#fff)}
-        .category-filters{display:flex;gap:6px;padding:0 16px 10px;flex-wrap:wrap}.category-filters button,.equipment-task,.active-filter button{border:0;border-radius:16px;padding:6px 10px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer;font:inherit;font-size:.8rem}.equipment-task,.active-filter button{background:none;color:var(--primary-color);text-decoration:underline;padding:3px 5px}.active-filter{padding:0 16px 10px;font-size:.82rem;color:var(--secondary-text-color)}
+         .task-search{padding:0 16px 10px}.task-search input{box-sizing:border-box;width:100%;border:1px solid var(--divider-color);border-radius:8px;padding:10px 12px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit}.task-result-count{padding:0 16px 8px;font-size:.76rem;color:var(--secondary-text-color)}.category-filters{display:flex;gap:6px;padding:0 16px 10px;flex-wrap:wrap}.category-filters button,.equipment-task,.active-filter button{border:0;border-radius:16px;padding:6px 10px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer;font:inherit;font-size:.8rem}.equipment-task,.active-filter button{background:none;color:var(--primary-color);text-decoration:underline;padding:3px 5px}.active-filter{padding:0 16px 10px;font-size:.82rem;color:var(--secondary-text-color)}
         .tasks{padding:0 16px}.task{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 0;border-top:1px solid var(--divider-color)}
         .task-main{min-width:0}.task-name{font-weight:600}.meta{margin-top:3px}.description{font-size:.82rem;margin-top:5px;color:var(--secondary-text-color)}
         .details-toggle{border:0;background:none;color:var(--primary-color);padding:6px 0 0;cursor:pointer;font:inherit;font-size:.8rem}.task-details{margin-top:10px;padding:10px;border-radius:8px;background:var(--secondary-background-color);display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;font-size:.82rem}.task-details>div:not(.history-list){display:flex;flex-direction:column;gap:3px}.task-details span{color:var(--secondary-text-color)}.inspection-guide{grid-column:1/-1;border-bottom:1px solid var(--divider-color);padding-bottom:10px}.inspection-guide-title{display:block;font-size:.9rem;margin-bottom:8px}.inspection-guide-section{display:block!important;margin-top:8px;padding:0;border:0}.inspection-guide-section strong{display:block;color:var(--primary-text-color);margin-bottom:3px}.inspection-guide-section ul{margin:3px 0 0;padding-left:20px}.inspection-guide-section li{margin:3px 0}.inspection-guide-section p{margin:3px 0;color:var(--secondary-text-color)}.history-list{grid-column:1/-1;border-top:1px solid var(--divider-color);padding-top:8px}.history-item{display:flex;flex-direction:column;gap:2px;padding:7px 0;border-top:1px solid var(--divider-color)}
@@ -587,7 +601,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
         .status.overdue{color:var(--error-color)}.status.due_today{color:var(--warning-color)}.status.due_soon{color:var(--primary-color)}
         .task-action-buttons{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.reschedule{border:1px solid var(--divider-color);border-radius:18px;padding:7px 10px;background:var(--card-background-color);color:var(--primary-color);font-size:.78rem;cursor:pointer}.complete{background:var(--success-color,var(--primary-color));color:var(--text-primary-color,#fff);font-size:.78rem}
         section{padding:8px 16px 14px;border-top:1px solid var(--divider-color)}h3{font-size:1rem;margin:8px 0}h3 small{font-weight:400;color:var(--secondary-text-color);margin-left:5px}
-        .equipment-view{padding:8px 16px 16px}.equipment-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:4px 0 14px}.equipment-overview>div{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 5px;border-radius:9px;background:var(--secondary-background-color)}.equipment-overview strong{font-size:1.25rem}.equipment-overview span{font-size:.72rem;color:var(--secondary-text-color);text-align:center}.equipment-card{border:1px solid var(--divider-color);border-radius:10px;padding:12px;margin:10px 0}.equipment-card-header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.equipment-card-header h3{margin:0 0 3px}.equipment-counts{display:flex;flex-direction:column;align-items:flex-end;gap:4px;white-space:nowrap;font-size:.75rem;color:var(--secondary-text-color)}.equipment-overdue{color:var(--error-color);font-weight:600}.equipment-replacement{font-size:.8rem;margin-top:8px;color:var(--secondary-text-color)}.equipment-linked-tasks{margin-top:6px}.equipment-empty{padding:8px 0}.equipment{display:flex;justify-content:space-between;gap:12px;padding:9px 0;font-size:.88rem;border-bottom:1px solid var(--divider-color)}.equipment-main{min-width:0;width:100%}.equipment-meta,.equipment-lifecycle{font-size:.76rem;color:var(--secondary-text-color);margin-top:3px}.equipment-links{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+        .equipment-view{padding:8px 16px 16px}.equipment-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:4px 0 14px}.equipment-overview>div{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 5px;border-radius:9px;background:var(--secondary-background-color)}.equipment-overview strong{font-size:1.25rem}.equipment-overview span{font-size:.72rem;color:var(--secondary-text-color);text-align:center} .equipment-card{border:1px solid var(--divider-color);border-radius:10px;padding:12px;margin:10px 0}.equipment-card.selected{border-color:var(--primary-color);box-shadow:0 0 0 1px var(--primary-color)}.equipment-linked-task{border-top:1px solid var(--divider-color);padding-top:5px;margin-top:5px}.equipment-task-open{border:0;background:none;color:var(--primary-color);padding:4px 0;cursor:pointer;font:inherit;font-size:.78rem;text-decoration:underline}.equipment-card-header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.equipment-card-header h3{margin:0 0 3px}.equipment-counts{display:flex;flex-direction:column;align-items:flex-end;gap:4px;white-space:nowrap;font-size:.75rem;color:var(--secondary-text-color)}.equipment-overdue{color:var(--error-color);font-weight:600}.equipment-replacement{font-size:.8rem;margin-top:8px;color:var(--secondary-text-color)}.equipment-linked-tasks{margin-top:6px}.equipment-empty{padding:8px 0}.equipment{display:flex;justify-content:space-between;gap:12px;padding:9px 0;font-size:.88rem;border-bottom:1px solid var(--divider-color)}.equipment-main{min-width:0;width:100%}.equipment-meta,.equipment-lifecycle{font-size:.76rem;color:var(--secondary-text-color);margin-top:3px}.equipment-links{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
         footer{border-top:1px solid var(--divider-color);padding:12px 16px;color:var(--secondary-text-color);font-size:.85rem}.empty{padding:16px 0;color:var(--secondary-text-color)}
         @media(max-width:600px){.calendar-day{min-height:58px;padding:3px}.calendar-task{font-size:.55rem}.calendar-more{font-size:.55rem}}
         @media(max-width:420px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.task{align-items:flex-start}.task-actions{align-items:flex-end}.equipment-card-header{flex-direction:column}.equipment-counts{align-items:flex-start;flex-direction:row;flex-wrap:wrap}.equipment{flex-direction:column;gap:2px}.equipment span{text-align:left}}
@@ -663,6 +677,21 @@ class HomeMaintenanceManagerCard extends HTMLElement {
       this._category = button.dataset.category;
       this.render();
     }));
+    this.querySelectorAll("[data-task-search]").forEach((input) => input.addEventListener("input", () => {
+      this._taskSearch = input.value;
+      const position = input.selectionStart;
+      this.render();
+      const refreshed = this.querySelector("[data-task-search]");
+      if (refreshed) { refreshed.focus(); refreshed.setSelectionRange(position, position); }
+    }));
+    this.querySelectorAll("[data-equipment-id]").forEach((button) => button.addEventListener("click", () => {
+      this._selectedEquipmentId = button.dataset.equipmentId;
+      this._view = "equipment";
+      this.render();
+      this.querySelectorAll("[data-equipment-card]").forEach((card) => {
+        if (card.dataset.equipmentCard === this._selectedEquipmentId) card.scrollIntoView({ block: "center", behavior: "smooth" });
+      });
+    }));
     this.querySelectorAll("[data-details]").forEach((button) => button.addEventListener("click", () => {
       this._detailTaskKey = this._detailTaskKey === button.dataset.details ? null : button.dataset.details;
       this.render();
@@ -671,6 +700,8 @@ class HomeMaintenanceManagerCard extends HTMLElement {
       this._equipmentTask = button.dataset.taskId;
       this._category = "all";
       this._filter = "all";
+      this._taskSearch = "";
+      this._view = "list";
       this.render();
     }));
     this.querySelectorAll("[data-clear-task]").forEach((button) => button.addEventListener("click", () => {
