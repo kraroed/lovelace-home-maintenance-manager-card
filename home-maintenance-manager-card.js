@@ -627,8 +627,29 @@ class HomeMaintenanceManagerCard extends HTMLElement {
         section{padding:8px 16px 14px;border-top:1px solid var(--divider-color)}h3{font-size:1rem;margin:8px 0}h3 small{font-weight:400;color:var(--secondary-text-color);margin-left:5px}
         .equipment-view{padding:8px 16px 16px}.equipment-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:4px 0 14px}.equipment-overview>div{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 5px;border-radius:9px;background:var(--secondary-background-color)}.equipment-overview strong{font-size:1.25rem}.equipment-overview span{font-size:.72rem;color:var(--secondary-text-color);text-align:center} .equipment-card{border:1px solid var(--divider-color);border-radius:10px;padding:12px;margin:10px 0}.equipment-card.selected{border-color:var(--primary-color);box-shadow:0 0 0 1px var(--primary-color)}.equipment-linked-task{border-top:1px solid var(--divider-color);padding-top:5px;margin-top:5px}.equipment-task-open{border:0;background:none;color:var(--primary-color);padding:4px 0;cursor:pointer;font:inherit;font-size:.78rem;text-decoration:underline}.equipment-card-header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.equipment-card-header h3{margin:0 0 3px}.equipment-counts{display:flex;flex-direction:column;align-items:flex-end;gap:4px;white-space:nowrap;font-size:.75rem;color:var(--secondary-text-color)}.equipment-overdue{color:var(--error-color);font-weight:600}.equipment-replacement{font-size:.8rem;margin-top:8px;color:var(--secondary-text-color)}.equipment-linked-tasks{margin-top:6px}.equipment-empty{padding:8px 0}.equipment{display:flex;justify-content:space-between;gap:12px;padding:9px 0;font-size:.88rem;border-bottom:1px solid var(--divider-color)}.equipment-main{min-width:0;width:100%}.equipment-meta,.equipment-lifecycle{font-size:.76rem;color:var(--secondary-text-color);margin-top:3px}.equipment-links{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
         footer{border-top:1px solid var(--divider-color);padding:12px 16px;color:var(--secondary-text-color);font-size:.85rem}.empty{padding:16px 0;color:var(--secondary-text-color)}
-        @media(max-width:600px){.calendar-day{min-height:58px;padding:3px}.calendar-task{font-size:.55rem}.calendar-more{font-size:.55rem}}
-        @media(max-width:420px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.task{align-items:flex-start}.task-actions{align-items:flex-end}.equipment-card-header{flex-direction:column}.equipment-counts{align-items:flex-start;flex-direction:row;flex-wrap:wrap}.equipment{flex-direction:column;gap:2px}.equipment span{text-align:left}}
+        @media(max-width:600px){
+          .header{padding:14px 14px 8px}.stats{grid-template-columns:repeat(2,minmax(0,1fr));padding:8px 12px 12px}
+          .view-toggle{padding:0 12px 10px;flex-wrap:wrap}.filters,.category-filters{padding-left:12px;padding-right:12px}
+          .tasks{padding:0 12px}.task{align-items:stretch;flex-direction:column;gap:9px;padding:12px 0}
+          .task-main{width:100%}.task-actions{width:100%;align-items:center;flex-direction:row;justify-content:space-between;flex-wrap:wrap;gap:8px}
+          .task-action-buttons{justify-content:flex-start;flex:1 1 100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+          .task-action-buttons button,.task-inline-form-actions button{min-height:40px}
+          .task-inline-form{width:100%;max-width:none}.task-inline-form-actions{display:grid;grid-template-columns:1fr 1fr}
+          .task-details{grid-template-columns:minmax(0,1fr);gap:10px;padding:12px}.task-details>div,.task-details>div:not(.history-list){min-width:0}
+          .history-view,.equipment-view,.agenda-section{padding-left:12px;padding-right:12px}
+          .history-controls{grid-template-columns:minmax(0,1fr)}.history-controls>input{grid-column:auto}
+          .schedule-comparison{grid-template-columns:minmax(0,1fr)}
+          .equipment-card-header{flex-direction:column}.equipment-counts{align-items:flex-start;flex-direction:row;flex-wrap:wrap;white-space:normal}
+          .equipment{flex-direction:column;gap:2px}.equipment span{text-align:left}
+          .calendar-day{min-height:58px;padding:3px}.calendar-task,.calendar-more{font-size:.55rem}
+          .calendar-toolbar{gap:6px;flex-wrap:wrap}.calendar-toolbar strong{min-width:0;flex:1 1 100%;order:-1}
+        }
+        @media(max-width:360px){
+          .agenda-overview,.equipment-overview{grid-template-columns:minmax(0,1fr)}
+          .task-action-buttons{grid-template-columns:minmax(0,1fr)}
+          .history-record-heading{flex-direction:column;gap:3px}
+          .calendar-day{min-height:48px}.calendar-weekday{font-size:.65rem}
+        }
       </style>`;
     this.querySelectorAll("[data-export-format]").forEach((select) => select.addEventListener("change", () => {
       this._exportFormat = select.value;
