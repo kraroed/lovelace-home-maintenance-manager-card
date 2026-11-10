@@ -274,6 +274,79 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     </section>`;
   }
 
+
+  _renderEquipmentView(equipment, tasks) {
+    if (!equipment.length) {
+      return '<section class="equipment-view"><div class="empty">No equipment records found. Add equipment in Home Maintenance Manager → Configure → Add household equipment.</div></section>';
+    }
+    const records = equipment.map((entry) => {
+      const attrs = entry.attributes || {};
+      const instance = attrs.integration_instance || "default";
+      const ids = Array.isArray(attrs.task_ids) ? attrs.task_ids : [];
+      const linked = tasks.filter(({ state }) =>
+        ids.includes(state.attributes?.task_id) &&
+        (state.attributes?.integration_instance || "default") === instance
+      );
+      const overdue = linked.filter(({ state }) => state.state === "overdue").length;
+      const dueSoon = linked.filter(({ state }) => ["due_today", "due_soon"].includes(state.state)).length;
+      const metadata = [attrs.manufacturer, attrs.model].filter(Boolean).join(" · ");
+      const lifecycle = [];
+      if (attrs.category) lifecycle.push(attrs.category);
+      if (attrs.installed_date) lifecycle.push("Installed " + this._date(attrs.installed_date));
+      if (Number(attrs.lifespan_months) > 0) lifecycle.push("Expected lifespan " + attrs.lifespan_months + " months");
+      if (attrs.replacement_due) lifecycle.push("Replacement due " + this._date(attrs.replacement_due));
+      const replacement = attrs.replacement_task_id
+        ? linked.find(({ state }) => state.attributes?.task_id === attrs.replacement_task_id)
+        : null;
+      const taskMarkup = linked.length
+        ? linked.map((item) => this._renderTask(item, equipment)).join("")
+        : '<div class="empty equipment-empty">No active maintenance tasks are linked to this equipment.</div>';
+      return `
+        <article class="equipment-card">
+          <div class="equipment-card-header">
+            <div><h3>${this._escape(attrs.friendly_name || entry.state)}</h3>
+              ${metadata ? '<div class="equipment-meta">' + this._escape(metadata) + '</div>' : ''}
+              <div class="equipment-lifecycle">${this._escape(lifecycle.join(" · ") || "Equipment record")}</div>
+            </div>
+            <div class="equipment-counts">
+              <span>${linked.length} linked</span>
+              ${overdue ? '<span class="equipment-overdue">' + overdue + ' overdue</span>' : ''}
+              ${dueSoon ? '<span>' + dueSoon + ' due soon</span>' : ''}
+            </div>
+          </div>
+          ${replacement ? '<div class="equipment-replacement">Replacement task: ' + this._escape((replacement.state.attributes.friendly_name || replacement.state.entity_id).replace(/ Status$/, '')) + '</div>' : ''}
+          <div class="equipment-linked-tasks">${taskMarkup}</div>
+        </article>`;
+    }).join("");
+    const totalLinked = equipment.reduce((sum, entry) => {
+      const attrs = entry.attributes || {};
+      const instance = attrs.integration_instance || "default";
+      const ids = Array.isArray(attrs.task_ids) ? attrs.task_ids : [];
+      return sum + tasks.filter(({ state }) =>
+        ids.includes(state.attributes?.task_id) &&
+        (state.attributes?.integration_instance || "default") === instance
+      ).length;
+    }, 0);
+    const overdueTotal = equipment.reduce((sum, entry) => {
+      const attrs = entry.attributes || {};
+      const instance = attrs.integration_instance || "default";
+      const ids = Array.isArray(attrs.task_ids) ? attrs.task_ids : [];
+      return sum + tasks.filter(({ state }) =>
+        ids.includes(state.attributes?.task_id) &&
+        (state.attributes?.integration_instance || "default") === instance &&
+        state.state === "overdue"
+      ).length;
+    }, 0);
+    return `<section class="equipment-view">
+      <div class="equipment-overview">
+        <div><strong>${equipment.length}</strong><span>Equipment items</span></div>
+        <div><strong>${totalLinked}</strong><span>Linked tasks</span></div>
+        <div><strong>${overdueTotal}</strong><span>Overdue tasks</span></div>
+      </div>
+      ${records}
+    </section>`;
+  }
+
   _discover() {
     const states = Object.values(this._hass?.states || {});
     const integrationStates = states.filter((state) =>
@@ -471,7 +544,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
           <div class="stat"><strong>${this._escape(count("due_today"))}</strong><span>Due today</span></div>
           <div class="stat"><strong>${this._escape(count("due_soon"))}</strong><span>Due soon</span></div>
         </div>
-        <div class="view-toggle"><button data-view="list" class="${this._view === "list" ? "selected" : ""}">List view</button><button data-view="calendar" class="${this._view === "calendar" ? "selected" : ""}">Calendar</button><button data-view="agenda" class="${this._view === "agenda" ? "selected" : ""}">Schedule agenda</button><button data-view="history" class="${this._view === "history" ? "selected" : ""}">Completions</button><button data-view="schedule-history" class="${this._view === "schedule-history" ? "selected" : ""}">Schedule changes</button></div>
+        <div class="view-toggle"><button data-view="list" class="${this._view === "list" ? "selected" : ""}">List view</button><button data-view="calendar" class="${this._view === "calendar" ? "selected" : ""}">Calendar</button><button data-view="agenda" class="${this._view === "agenda" ? "selected" : ""}">Schedule agenda</button><button data-view="equipment" class="${this._view === "equipment" ? "selected" : ""}">Equipment</button><button data-view="history" class="${this._view === "history" ? "selected" : ""}">Completions</button><button data-view="schedule-history" class="${this._view === "schedule-history" ? "selected" : ""}">Schedule changes</button></div>
         <div class="maintenance-tools">
           <label>History export
             <select data-export-format>
@@ -489,10 +562,10 @@ class HomeMaintenanceManagerCard extends HTMLElement {
           <button data-filter="due_today" class="${this._filter === "due_today" ? "selected" : ""}">Due today</button>
           <button data-filter="upcoming" class="${this._filter === "upcoming" ? "selected" : ""}">Upcoming</button>
         </div>
-        ${this._view === "calendar" ? calendarMarkup : this._view === "agenda" ? this._renderAgenda(tasks, equipment) : this._view === "history" ? historyMarkup : this._view === "schedule-history" ? this._renderScheduleHistory(historyTasks) : categoryMarkup}
+        ${this._view === "calendar" ? calendarMarkup : this._view === "agenda" ? this._renderAgenda(tasks, equipment) : this._view === "equipment" ? this._renderEquipmentView(equipment, tasks) : this._view === "history" ? historyMarkup : this._view === "schedule-history" ? this._renderScheduleHistory(historyTasks) : categoryMarkup}
         ${this._equipmentTask ? '<div class="active-filter">Showing selected equipment task <button data-clear-task>Clear</button></div>' : ""}
         ${this._view === "list" ? `<div class="tasks">${taskMarkup}</div>` : ""}
-        ${this.config.show_equipment ? `<section><h3>Equipment <small>${this._escape(count("equipment_count"))} registered</small></h3>${equipmentMarkup}</section>` : ""}
+        ${this.config.show_equipment && this._view !== "equipment" ? `<section><h3>Equipment <small>${this._escape(count("equipment_count"))} registered</small></h3>${equipmentMarkup}</section>` : ""}
         ${this.config.show_history ? `<footer>Completion history records: <strong>${this._escape(count("history_count"))}</strong></footer>` : ""}
       </ha-card>
       <style>
@@ -514,10 +587,10 @@ class HomeMaintenanceManagerCard extends HTMLElement {
         .status.overdue{color:var(--error-color)}.status.due_today{color:var(--warning-color)}.status.due_soon{color:var(--primary-color)}
         .task-action-buttons{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.reschedule{border:1px solid var(--divider-color);border-radius:18px;padding:7px 10px;background:var(--card-background-color);color:var(--primary-color);font-size:.78rem;cursor:pointer}.complete{background:var(--success-color,var(--primary-color));color:var(--text-primary-color,#fff);font-size:.78rem}
         section{padding:8px 16px 14px;border-top:1px solid var(--divider-color)}h3{font-size:1rem;margin:8px 0}h3 small{font-weight:400;color:var(--secondary-text-color);margin-left:5px}
-        .equipment{display:flex;justify-content:space-between;gap:12px;padding:9px 0;font-size:.88rem;border-bottom:1px solid var(--divider-color)}.equipment-main{min-width:0;width:100%}.equipment-meta,.equipment-lifecycle{font-size:.76rem;color:var(--secondary-text-color);margin-top:3px}.equipment-links{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+        .equipment-view{padding:8px 16px 16px}.equipment-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:4px 0 14px}.equipment-overview>div{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 5px;border-radius:9px;background:var(--secondary-background-color)}.equipment-overview strong{font-size:1.25rem}.equipment-overview span{font-size:.72rem;color:var(--secondary-text-color);text-align:center}.equipment-card{border:1px solid var(--divider-color);border-radius:10px;padding:12px;margin:10px 0}.equipment-card-header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.equipment-card-header h3{margin:0 0 3px}.equipment-counts{display:flex;flex-direction:column;align-items:flex-end;gap:4px;white-space:nowrap;font-size:.75rem;color:var(--secondary-text-color)}.equipment-overdue{color:var(--error-color);font-weight:600}.equipment-replacement{font-size:.8rem;margin-top:8px;color:var(--secondary-text-color)}.equipment-linked-tasks{margin-top:6px}.equipment-empty{padding:8px 0}.equipment{display:flex;justify-content:space-between;gap:12px;padding:9px 0;font-size:.88rem;border-bottom:1px solid var(--divider-color)}.equipment-main{min-width:0;width:100%}.equipment-meta,.equipment-lifecycle{font-size:.76rem;color:var(--secondary-text-color);margin-top:3px}.equipment-links{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
         footer{border-top:1px solid var(--divider-color);padding:12px 16px;color:var(--secondary-text-color);font-size:.85rem}.empty{padding:16px 0;color:var(--secondary-text-color)}
         @media(max-width:600px){.calendar-day{min-height:58px;padding:3px}.calendar-task{font-size:.55rem}.calendar-more{font-size:.55rem}}
-        @media(max-width:420px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.task{align-items:flex-start}.task-actions{align-items:flex-end}.equipment{flex-direction:column;gap:2px}.equipment span{text-align:left}}
+        @media(max-width:420px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.task{align-items:flex-start}.task-actions{align-items:flex-end}.equipment-card-header{flex-direction:column}.equipment-counts{align-items:flex-start;flex-direction:row;flex-wrap:wrap}.equipment{flex-direction:column;gap:2px}.equipment span{text-align:left}}
       </style>`;
     this.querySelectorAll("[data-export-format]").forEach((select) => select.addEventListener("change", () => {
       this._exportFormat = select.value;
