@@ -209,6 +209,32 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     })[status] || status;
   }
 
+  _scheduleDescription(attrs) {
+    const type = attrs.schedule_type || "interval";
+    if (type === "annual") {
+      const month = Number(attrs.annual_month);
+      const day = Number(attrs.annual_day);
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        const date = new Date(2000, month - 1, day);
+        return `Annual · ${date.toLocaleDateString(undefined, { month: "long", day: "numeric" })}`;
+      }
+      return "Annual schedule";
+    }
+    if (type === "monthly") {
+      const weeks = { first: "First", second: "Second", third: "Third", fourth: "Fourth", last: "Last" };
+      const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+      const week = weeks[attrs.monthly_week];
+      const weekday = weekdays[Number(attrs.monthly_weekday)];
+      return week && weekday ? `Monthly · ${week} ${weekday}` : "Monthly weekday schedule";
+    }
+    if (type === "seasonal") {
+      const seasons = Array.isArray(attrs.season_keys) ? attrs.season_keys.join(", ") : "";
+      return seasons ? `Seasonal · ${seasons}` : "Seasonal schedule";
+    }
+    const interval = Number(attrs.configured_interval_days || attrs.recommended_interval_days);
+    return interval > 0 ? `Every ${interval} days` : "Interval schedule";
+  }
+
   _renderTask(item, equipment) {
     const state = item.state;
     const attrs = state.attributes || {};
@@ -224,7 +250,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
       <article class="task">
         <div class="task-main">
           <div class="task-name">${this._escape(name)}</div>
-          <div class="meta">${this._escape(attrs.category || "General")} · Due: ${this._escape(this._date(attrs.next_due))}</div>
+          <div class="meta">${this._escape(attrs.category || "General")} · Due: ${this._escape(this._date(attrs.next_due))} · ${this._escape(this._scheduleDescription(attrs))}</div>
           ${attrs.description ? `<div class="description">${this._escape(attrs.description)}</div>` : ""}
           <button class="details-toggle" data-details="${this._escape(key)}">${detailLabel}</button>
           ${details}
@@ -305,7 +331,13 @@ class HomeMaintenanceManagerCard extends HTMLElement {
         const ids = item.attributes.task_ids || [];
         const linked = tasks.filter(({ state }) => ids.includes(state.attributes.task_id));
         const links = linked.length ? linked.map(({ state }) => '<button class="equipment-task" data-task-id="' + this._escape(state.attributes.task_id) + '">' + this._escape((state.attributes.friendly_name || state.entity_id).replace(/ Status$/, "")) + '</button>').join("") : '<span class="muted">No linked tasks</span>';
-        return '<div class="equipment"><div><strong>' + this._escape(item.attributes.friendly_name || item.state) + '</strong><div class="equipment-links">' + links + '</div></div><span>' + this._escape(item.attributes.manufacturer || "") + " " + this._escape(item.attributes.model || "") + '</span></div>';
+        const attrs = item.attributes || {};
+        const metadata = [attrs.manufacturer, attrs.model].filter(Boolean).join(" ");
+        const lifecycle = [];
+        if (attrs.installed_date) lifecycle.push("Installed " + this._escape(this._date(attrs.installed_date)));
+        if (Number(attrs.lifespan_months) > 0) lifecycle.push("Expected lifespan " + this._escape(attrs.lifespan_months) + " months");
+        if (attrs.replacement_due) lifecycle.push("Replacement due " + this._escape(this._date(attrs.replacement_due)));
+        return '<div class="equipment"><div class="equipment-main"><strong>' + this._escape(attrs.friendly_name || item.state) + '</strong><div class="equipment-meta">' + this._escape(metadata) + '</div>' + (lifecycle.length ? '<div class="equipment-lifecycle">' + lifecycle.join(" · ") + '</div>' : '') + '<div class="equipment-links">' + links + '</div></div></div>';
       }).join("")
       : '<div class="muted">No equipment records found.</div>';
     this.innerHTML = `
@@ -318,6 +350,17 @@ class HomeMaintenanceManagerCard extends HTMLElement {
           <div class="stat"><strong>${this._escape(count("due_soon"))}</strong><span>Due soon</span></div>
         </div>
         <div class="view-toggle"><button data-view="list" class="${this._view === "list" ? "selected" : ""}">List view</button><button data-view="calendar" class="${this._view === "calendar" ? "selected" : ""}">Calendar view</button><button data-view="history" class="${this._view === "history" ? "selected" : ""}">History</button></div>
+        <div class="maintenance-tools">
+          <label>History export
+            <select data-export-format>
+              <option value="both" ${(this._exportFormat || "both") === "both" ? "selected" : ""}>CSV + JSON</option>
+              <option value="csv" ${this._exportFormat === "csv" ? "selected" : ""}>CSV</option>
+              <option value="json" ${this._exportFormat === "json" ? "selected" : ""}>JSON</option>
+            </select>
+          </label>
+          <button data-export-history>Export history</button>
+          <button data-create-backup>Create JSON backup</button>
+        </div>
         <div class="filters" style="${this._view !== "list" ? "display:none" : ""}">
           <button data-filter="all" class="${this._filter === "all" ? "selected" : ""}">All</button>
           <button data-filter="overdue" class="${this._filter === "overdue" ? "selected" : ""}">Overdue</button>
@@ -343,16 +386,42 @@ class HomeMaintenanceManagerCard extends HTMLElement {
         .tasks{padding:0 16px}.task{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 0;border-top:1px solid var(--divider-color)}
         .task-main{min-width:0}.task-name{font-weight:600}.meta{margin-top:3px}.description{font-size:.82rem;margin-top:5px;color:var(--secondary-text-color)}
         .details-toggle{border:0;background:none;color:var(--primary-color);padding:6px 0 0;cursor:pointer;font:inherit;font-size:.8rem}.task-details{margin-top:10px;padding:10px;border-radius:8px;background:var(--secondary-background-color);display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;font-size:.82rem}.task-details>div:not(.history-list){display:flex;flex-direction:column;gap:3px}.task-details span{color:var(--secondary-text-color)}.inspection-guide{grid-column:1/-1;border-bottom:1px solid var(--divider-color);padding-bottom:10px}.inspection-guide-title{display:block;font-size:.9rem;margin-bottom:8px}.inspection-guide-section{display:block!important;margin-top:8px;padding:0;border:0}.inspection-guide-section strong{display:block;color:var(--primary-text-color);margin-bottom:3px}.inspection-guide-section ul{margin:3px 0 0;padding-left:20px}.inspection-guide-section li{margin:3px 0}.inspection-guide-section p{margin:3px 0;color:var(--secondary-text-color)}.history-list{grid-column:1/-1;border-top:1px solid var(--divider-color);padding-top:8px}.history-item{display:flex;flex-direction:column;gap:2px;padding:7px 0;border-top:1px solid var(--divider-color)}
+        .maintenance-tools{display:flex;align-items:end;gap:8px;flex-wrap:wrap;padding:0 16px 12px}.maintenance-tools label{display:flex;flex-direction:column;gap:4px;font-size:.75rem;color:var(--secondary-text-color)}.maintenance-tools select,.maintenance-tools button{border:1px solid var(--divider-color);border-radius:16px;padding:7px 10px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;font-size:.8rem}.maintenance-tools button{cursor:pointer}.maintenance-tools button:hover{border-color:var(--primary-color)}
         .history-view{padding:10px 16px 16px}.history-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end}.history-controls>input,.history-controls label input{box-sizing:border-box;width:100%;min-width:0;border:1px solid var(--divider-color);border-radius:7px;padding:9px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit}.history-controls>input{grid-column:1/-1}.history-controls label{font-size:.78rem;color:var(--secondary-text-color)}.history-controls label input{display:block;margin-top:3px}.history-controls button{justify-self:start;border:0;background:var(--secondary-background-color);color:var(--primary-text-color);border-radius:16px;padding:7px 12px;cursor:pointer}.history-result-count{font-size:.8rem;color:var(--secondary-text-color);padding:12px 0 4px}.history-record{border-top:1px solid var(--divider-color);padding:11px 0;font-size:.85rem}.history-record-heading{display:flex;justify-content:space-between;gap:8px}.history-record-heading span,.history-meta{color:var(--secondary-text-color);font-size:.8rem}.history-record p{margin:6px 0}.history-note{font-size:.75rem;color:var(--secondary-text-color);margin-top:12px}
         .task-actions{display:flex;align-items:flex-end;gap:7px;flex-direction:column;flex-shrink:0}.status{font-size:.75rem;font-weight:600;border-radius:12px;padding:3px 8px;background:var(--secondary-background-color)}
         .status.overdue{color:var(--error-color)}.status.due_today{color:var(--warning-color)}.status.due_soon{color:var(--primary-color)}
         .task-action-buttons{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.reschedule{border:1px solid var(--divider-color);border-radius:18px;padding:7px 10px;background:var(--card-background-color);color:var(--primary-color);font-size:.78rem;cursor:pointer}.complete{background:var(--success-color,var(--primary-color));color:var(--text-primary-color,#fff);font-size:.78rem}
         section{padding:8px 16px 14px;border-top:1px solid var(--divider-color)}h3{font-size:1rem;margin:8px 0}h3 small{font-weight:400;color:var(--secondary-text-color);margin-left:5px}
-        .equipment{display:flex;justify-content:space-between;gap:12px;padding:7px 0;font-size:.88rem}.equipment span{color:var(--secondary-text-color);text-align:right}
+        .equipment{display:flex;justify-content:space-between;gap:12px;padding:9px 0;font-size:.88rem;border-bottom:1px solid var(--divider-color)}.equipment-main{min-width:0;width:100%}.equipment-meta,.equipment-lifecycle{font-size:.76rem;color:var(--secondary-text-color);margin-top:3px}.equipment-links{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
         footer{border-top:1px solid var(--divider-color);padding:12px 16px;color:var(--secondary-text-color);font-size:.85rem}.empty{padding:16px 0;color:var(--secondary-text-color)}
         @media(max-width:600px){.calendar-day{min-height:58px;padding:3px}.calendar-task{font-size:.55rem}.calendar-more{font-size:.55rem}}
         @media(max-width:420px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.task{align-items:flex-start}.task-actions{align-items:flex-end}.equipment{flex-direction:column;gap:2px}.equipment span{text-align:left}}
       </style>`;
+    this.querySelectorAll("[data-export-format]").forEach((select) => select.addEventListener("change", () => {
+      this._exportFormat = select.value;
+    }));
+    this.querySelectorAll("[data-export-history]").forEach((button) => button.addEventListener("click", async () => {
+      button.disabled = true;
+      try {
+        await this._hass.callService("home_maintenance_manager", "export_history", {
+          format: this._exportFormat || "both",
+        });
+      } catch (error) {
+        window.alert("Could not export maintenance history. Check Home Assistant logs for details.");
+      } finally {
+        button.disabled = false;
+      }
+    }));
+    this.querySelectorAll("[data-create-backup]").forEach((button) => button.addEventListener("click", async () => {
+      button.disabled = true;
+      try {
+        await this._hass.callService("home_maintenance_manager", "create_backup", {});
+      } catch (error) {
+        window.alert("Could not create a maintenance backup. Check Home Assistant logs for details.");
+      } finally {
+        button.disabled = false;
+      }
+    }));
     this.querySelectorAll("[data-history-search]").forEach((input) => input.addEventListener("input", () => {
       this._historySearch = input.value;
       const position = input.selectionStart;
