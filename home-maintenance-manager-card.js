@@ -27,6 +27,10 @@ class HomeMaintenanceManagerCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
+    // Keep native mobile inputs alive while a task action form is being edited.
+    // HA state updates can arrive while iOS date/text inputs are opening; rebuilding
+    // innerHTML here would detach the focused input and dismiss the keyboard.
+    if (this._taskActionForm) return;
     this.render();
   }
 
