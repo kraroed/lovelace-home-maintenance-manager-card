@@ -9,7 +9,9 @@ The card provides a household maintenance overview with task status, due dates, 
 ## Features
 
 - Maintenance summary counts, including overdue and due-today tasks.
+- Searchable maintenance task list with matching across task names, IDs, categories, descriptions, and linked equipment details.
 - List view with status filters and dynamically generated category filters.
+- Bidirectional equipment/task navigation: open linked tasks from equipment records or jump from a task’s details to its equipment record.
 - Monthly calendar view with previous/next month navigation, a Today shortcut, and selectable dates.
 - Schedule agenda view grouping overdue maintenance, upcoming tasks for the next 90 days, and seasonal tasks scheduled within the next 12 months.
 - Dedicated equipment view with equipment details, linked maintenance tasks, task status, overdue counts, and replacement scheduling information.
