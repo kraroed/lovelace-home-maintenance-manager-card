@@ -56,6 +56,20 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   }
 
+  _daysOverdue(value) {
+    if (!value) return 0;
+    // Compare local calendar dates so timezone offsets do not change the
+    // number of days a maintenance task has been overdue.
+    const due = /^\\d{4}-\\d{2}-\\d{2}$/.test(String(value))
+      ? new Date(`${value}T12:00:00`)
+      : new Date(value);
+    if (Number.isNaN(due.getTime())) return 0;
+    const today = new Date();
+    const dueDay = Date.UTC(due.getFullYear(), due.getMonth(), due.getDate());
+    const todayDay = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+    return Math.max(0, Math.floor((todayDay - dueDay) / 86400000));
+  }
+
   _isValidDateKey(value) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
     const date = new Date(`${value}T00:00:00.000Z`);
@@ -447,6 +461,10 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     const attrs = state.attributes || {};
     const name = (attrs.friendly_name || state.entity_id).replace(/ Status$/, "");
     const status = state.state;
+    const daysOverdue = status === "overdue" ? this._daysOverdue(attrs.next_due) : 0;
+    const statusText = daysOverdue > 0
+      ? `Overdue · ${daysOverdue} ${daysOverdue === 1 ? "day" : "days"}`
+      : this._statusLabel(status);
     const key = `${attrs.integration_instance || "default"}:${attrs.task_id}`;
     const action = item.button
       ? `<div class="task-action-buttons"><button class="reschedule" data-open-task-action="reschedule" data-task-key="${this._escape(key)}" data-task-id="${this._escape(attrs.task_id)}" data-instance="${this._escape(attrs.integration_instance || "default")}" data-current-due="${this._escape((attrs.next_due || "").slice(0, 10))}">Reschedule</button><button class="complete" data-open-task-action="complete" data-task-key="${this._escape(key)}" data-task-id="${this._escape(attrs.task_id)}" data-instance="${this._escape(attrs.integration_instance || "default")}">Mark complete</button></div>`
@@ -467,7 +485,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
           ${actionForm}
         </div>
         <div class="task-actions">
-          <span class="status ${this._escape(status)}">${this._escape(this._statusLabel(status))}</span>
+          <span class="status ${this._escape(status)}">${this._escape(statusText)}</span>
           ${action}
         </div>
       </article>`;
