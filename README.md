@@ -11,6 +11,7 @@ The card provides a household maintenance overview with task status, due dates, 
 - Maintenance summary counts, including overdue and due-today tasks.
 - List view with status filters and dynamically generated category filters.
 - Monthly calendar view with previous/next month navigation, a Today shortcut, and selectable dates.
+- Schedule agenda view grouping overdue maintenance, upcoming tasks for the next 90 days, and seasonal tasks scheduled within the next 12 months.
 - Completion history view with search and completion-date filters.
 - Dedicated schedule changes view showing configuration changes and manual reschedules, including previous/new schedule definitions, due dates, timestamps, and reasons.
 - Task details with inspection guides: how to inspect, what to look for, what to do if something is wrong, and safety precautions.
