@@ -15,6 +15,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     if (this._selectedEquipmentId === undefined) this._selectedEquipmentId = null;
     if (this._equipmentTask === undefined) this._equipmentTask = null;
     if (this._detailTaskKey === undefined) this._detailTaskKey = null;
+    if (this._taskActionForm === undefined) this._taskActionForm = null;
     if (this._view === undefined) this._view = "list";
     if (this._calendarMonth === undefined) this._calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     if (this._selectedCalendarDate === undefined) this._selectedCalendarDate = this._calendarKey(new Date());
@@ -439,8 +440,11 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     const status = state.state;
     const key = `${attrs.integration_instance || "default"}:${attrs.task_id}`;
     const action = item.button
-      ? `<div class="task-action-buttons"><button class="reschedule" data-reschedule-task="${this._escape(attrs.task_id)}" data-instance="${this._escape(attrs.integration_instance || "default")}" data-current-due="${this._escape((attrs.next_due || "").slice(0, 10))}">Reschedule</button><button class="complete" data-complete-task="${this._escape(attrs.task_id)}" data-instance="${this._escape(attrs.integration_instance || "default")}">Mark complete</button></div>`
+      ? `<div class="task-action-buttons"><button class="reschedule" data-open-task-action="reschedule" data-task-key="${this._escape(key)}" data-task-id="${this._escape(attrs.task_id)}" data-instance="${this._escape(attrs.integration_instance || "default")}" data-current-due="${this._escape((attrs.next_due || "").slice(0, 10))}">Reschedule</button><button class="complete" data-open-task-action="complete" data-task-key="${this._escape(key)}" data-task-id="${this._escape(attrs.task_id)}" data-instance="${this._escape(attrs.integration_instance || "default")}">Mark complete</button></div>`
       : '<span class="muted">No completion button</span>';
+    const actionForm = this._taskActionForm?.key === key
+      ? this._renderTaskActionForm(key, attrs)
+      : "";
     const details = this._detailTaskKey === key ? this._renderTaskDetails(item, equipment) : "";
     const detailLabel = this._detailTaskKey === key ? "Hide details" : "Details";
     return `
@@ -455,8 +459,27 @@ class HomeMaintenanceManagerCard extends HTMLElement {
         <div class="task-actions">
           <span class="status ${this._escape(status)}">${this._escape(this._statusLabel(status))}</span>
           ${action}
+          ${actionForm}
         </div>
       </article>`;
+  }
+
+  _renderTaskActionForm(key, attrs) {
+    const form = this._taskActionForm;
+    const name = (attrs.friendly_name || attrs.task_id || "this task").replace(/ Status$/, "");
+    if (form.type === "reschedule") {
+      return `<form class="task-inline-form" data-task-action-form data-action="reschedule" data-task-key="${this._escape(key)}" data-task-id="${this._escape(attrs.task_id)}" data-instance="${this._escape(attrs.integration_instance || "default")}">
+        <strong>Reschedule ${this._escape(name)}</strong>
+        <label>New due date<input type="date" name="due_date" required value="${this._escape(form.date || (attrs.next_due || "").slice(0, 10))}"></label>
+        <label>Reason (optional)<input type="text" name="reason" maxlength="500" placeholder="Why is this being rescheduled?"></label>
+        <div class="task-inline-form-actions"><button type="button" data-cancel-task-action>Cancel</button><button type="submit" class="complete">Save due date</button></div>
+      </form>`;
+    }
+    return `<form class="task-inline-form" data-task-action-form data-action="complete" data-task-key="${this._escape(key)}" data-task-id="${this._escape(attrs.task_id)}" data-instance="${this._escape(attrs.integration_instance || "default")}">
+      <strong>Complete ${this._escape(name)}</strong>
+      <label>Completion notes (optional)<textarea name="notes" rows="2" maxlength="2000" placeholder="Add any details about this maintenance..."></textarea></label>
+      <div class="task-inline-form-actions"><button type="button" data-cancel-task-action>Cancel</button><button type="submit" class="complete">Confirm completion</button></div>
+    </form>`;
   }
 
   _renderTaskDetails(item, equipment) {
@@ -597,6 +620,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
         .details-toggle{border:0;background:none;color:var(--primary-color);padding:6px 0 0;cursor:pointer;font:inherit;font-size:.8rem}.task-details{margin-top:10px;padding:10px;border-radius:8px;background:var(--secondary-background-color);display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;font-size:.82rem}.task-details>div:not(.history-list){display:flex;flex-direction:column;gap:3px}.task-details span{color:var(--secondary-text-color)}.inspection-guide{grid-column:1/-1;border-bottom:1px solid var(--divider-color);padding-bottom:10px}.inspection-guide-title{display:block;font-size:.9rem;margin-bottom:8px}.inspection-guide-section{display:block!important;margin-top:8px;padding:0;border:0}.inspection-guide-section strong{display:block;color:var(--primary-text-color);margin-bottom:3px}.inspection-guide-section ul{margin:3px 0 0;padding-left:20px}.inspection-guide-section li{margin:3px 0}.inspection-guide-section p{margin:3px 0;color:var(--secondary-text-color)}.history-list{grid-column:1/-1;border-top:1px solid var(--divider-color);padding-top:8px}.history-item{display:flex;flex-direction:column;gap:2px;padding:7px 0;border-top:1px solid var(--divider-color)}
         .maintenance-tools{display:flex;align-items:end;gap:8px;flex-wrap:wrap;padding:0 16px 12px}.maintenance-tools label{display:flex;flex-direction:column;gap:4px;font-size:.75rem;color:var(--secondary-text-color)}.maintenance-tools select,.maintenance-tools button{border:1px solid var(--divider-color);border-radius:16px;padding:7px 10px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;font-size:.8rem}.maintenance-tools button{cursor:pointer}.maintenance-tools button:hover{border-color:var(--primary-color)}
         .history-view{padding:10px 16px 16px}.history-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end}.history-controls>input,.history-controls label input{box-sizing:border-box;width:100%;min-width:0;border:1px solid var(--divider-color);border-radius:7px;padding:9px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit}.history-controls>input{grid-column:1/-1}.history-controls label{font-size:.78rem;color:var(--secondary-text-color)}.history-controls label input{display:block;margin-top:3px}.history-controls button{justify-self:start;border:0;background:var(--secondary-background-color);color:var(--primary-text-color);border-radius:16px;padding:7px 12px;cursor:pointer}.history-result-count{font-size:.8rem;color:var(--secondary-text-color);padding:12px 0 4px}.history-record{border-top:1px solid var(--divider-color);padding:11px 0;font-size:.85rem}.history-record-heading{display:flex;justify-content:space-between;gap:8px}.history-record-heading span,.history-meta{color:var(--secondary-text-color);font-size:.8rem}.history-record p{margin:6px 0}.history-note{font-size:.75rem;color:var(--secondary-text-color);margin-top:12px}.schedule-change-kind{font-size:.78rem;color:var(--primary-color);margin-top:5px}.schedule-comparison{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.schedule-comparison>div{display:flex;flex-direction:column;gap:3px;padding:8px;border-radius:7px;background:var(--secondary-background-color)}.schedule-comparison span,.schedule-due-comparison{font-size:.75rem;color:var(--secondary-text-color)}.schedule-comparison strong{font-size:.84rem;color:var(--primary-text-color)}.schedule-due-comparison{margin-top:7px}
+        .task-inline-form{display:flex;flex-direction:column;gap:9px;width:min(100%,300px);box-sizing:border-box;padding:10px;border:1px solid var(--divider-color);border-radius:9px;background:var(--secondary-background-color);font-size:.82rem}.task-inline-form label{display:flex;flex-direction:column;gap:4px;color:var(--secondary-text-color)}.task-inline-form input,.task-inline-form textarea{box-sizing:border-box;width:100%;min-width:0;border:1px solid var(--divider-color);border-radius:6px;padding:8px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit}.task-inline-form textarea{resize:vertical}.task-inline-form-actions{display:flex;justify-content:flex-end;gap:7px}.task-inline-form-actions button{border:1px solid var(--divider-color);border-radius:16px;padding:7px 11px;background:var(--card-background-color);color:var(--primary-text-color);cursor:pointer;font:inherit}.task-inline-form-actions button.complete{background:var(--success-color,var(--primary-color));color:var(--text-primary-color,#fff);border-color:transparent}.task-inline-form button:disabled{opacity:.55;cursor:wait}
         .task-actions{display:flex;align-items:flex-end;gap:7px;flex-direction:column;flex-shrink:0}.status{font-size:.75rem;font-weight:600;border-radius:12px;padding:3px 8px;background:var(--secondary-background-color)}
         .status.overdue{color:var(--error-color)}.status.due_today{color:var(--warning-color)}.status.due_soon{color:var(--primary-color)}
         .task-action-buttons{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.reschedule{border:1px solid var(--divider-color);border-radius:18px;padding:7px 10px;background:var(--card-background-color);color:var(--primary-color);font-size:.78rem;cursor:pointer}.complete{background:var(--success-color,var(--primary-color));color:var(--text-primary-color,#fff);font-size:.78rem}
@@ -708,40 +732,51 @@ class HomeMaintenanceManagerCard extends HTMLElement {
       this._equipmentTask = null;
       this.render();
     }));
-    this.querySelectorAll("[data-reschedule-task]").forEach((button) => button.addEventListener("click", async () => {
-      const currentDue = button.dataset.currentDue || this._calendarKey(new Date());
-      const dueDate = window.prompt("New due date (YYYY-MM-DD):", currentDue);
-      if (dueDate === null) return;
-      if (!this._isValidDateKey(dueDate.trim())) {
-        window.alert("Enter a real calendar date as YYYY-MM-DD.");
-        return;
-      }
-      const reason = window.prompt("Why is this task being rescheduled? (optional)", "");
-      if (reason === null) return;
-      button.disabled = true;
-      try {
-        await this._hass.callService("home_maintenance_manager", "reschedule_task", {
-          task_id: button.dataset.rescheduleTask,
-          integration_instance: button.dataset.instance,
-          due_date: dueDate.trim(),
-          reason: reason.trim(),
-        });
-      } finally {
-        button.disabled = false;
-      }
+    this.querySelectorAll("[data-open-task-action]").forEach((button) => button.addEventListener("click", () => {
+      this._taskActionForm = {
+        type: button.dataset.openTaskAction,
+        key: button.dataset.taskKey,
+        date: button.dataset.currentDue || "",
+      };
+      this.render();
     }));
-    this.querySelectorAll("[data-complete-task]").forEach((button) => button.addEventListener("click", async () => {
-      const notes = window.prompt("Add completion notes (optional):", "");
-      if (notes === null) return;
-      button.disabled = true;
+    this.querySelectorAll("[data-cancel-task-action]").forEach((button) => button.addEventListener("click", () => {
+      this._taskActionForm = null;
+      this.render();
+    }));
+    this.querySelectorAll("[data-task-action-form]").forEach((form) => form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const submit = form.querySelector('button[type="submit"]');
+      const actionType = form.dataset.action;
+      const payload = {
+        task_id: form.dataset.taskId,
+        integration_instance: form.dataset.instance,
+      };
+      if (actionType === "reschedule") {
+        const dueDate = form.querySelector('[name="due_date"]').value;
+        if (!this._isValidDateKey(dueDate)) {
+          window.alert("Enter a valid due date.");
+          return;
+        }
+        payload.due_date = dueDate;
+        payload.reason = form.querySelector('[name="reason"]').value.trim();
+      } else {
+        payload.notes = form.querySelector('[name="notes"]').value.trim();
+      }
+      submit.disabled = true;
       try {
-        await this._hass.callService("home_maintenance_manager", "complete_task", {
-          task_id: button.dataset.completeTask,
-          integration_instance: button.dataset.instance,
-          notes: notes.trim(),
-        });
-      } finally {
-        button.disabled = false;
+        await this._hass.callService(
+          "home_maintenance_manager",
+          actionType === "reschedule" ? "reschedule_task" : "complete_task",
+          payload
+        );
+        this._taskActionForm = null;
+        this.render();
+      } catch (error) {
+        window.alert(actionType === "reschedule"
+          ? "Could not reschedule this task. Check Home Assistant logs for details."
+          : "Could not complete this task. Check Home Assistant logs for details.");
+        submit.disabled = false;
       }
     }));
   }
