@@ -13,9 +13,12 @@ The card provides a household maintenance overview with task status, due dates, 
 - Monthly calendar view with previous/next month navigation, a Today shortcut, and selectable dates.
 - History view with search and completion-date filters.
 - Task details with inspection guides: how to inspect, what to look for, what to do if something is wrong, and safety precautions.
-- Equipment records and links between equipment and maintenance tasks.
+- Clear schedule descriptions for interval, seasonal, annual month/day, and monthly weekday-pattern tasks.
+- Equipment records with installation dates, expected lifespan, replacement due dates, and links to maintenance tasks when the integration exposes those lifecycle attributes.
 - Mark-complete action with optional completion notes.
 - Reschedule action with a reason and retained schedule-change history.
+- Export permanent completion history as CSV, JSON, or both directly from the card.
+- Create a protected JSON property backup directly from the card; restore preview and confirmation remain available through the integration's Developer Tools actions.
 - Automatic discovery of Home Maintenance Manager entities; individual entity IDs are not required.
 - Supports multiple Home Maintenance Manager configuration entries.
 
@@ -25,7 +28,7 @@ The card provides a household maintenance overview with task status, due dates, 
 - The [Home Maintenance Manager integration](https://github.com/kraroed/home-maintenance-manager) installed and configured.
 - HACS, or manual installation.
 
-The card calls the integration's `home_maintenance_manager.complete_task` and `home_maintenance_manager.reschedule_task` services. It is a frontend companion and does not replace the integration.
+The card calls the integration's `complete_task`, `reschedule_task`, `export_history`, and `create_backup` services. Annual/monthly schedule details and equipment lifecycle metadata are displayed when exposed by the installed integration sensor entities. Mobile notification actions (Mark complete, Tomorrow, and In 1 week) remain managed by the integration's notification system. The card is a frontend companion and does not replace the integration.
 
 ## Install with HACS
 
