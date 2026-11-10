@@ -498,7 +498,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
       <div><span>Last completed</span><strong>${this._escape(this._date(attrs.last_completed))}</strong></div>
       <div><span>Next due</span><strong>${this._escape(this._date(attrs.next_due))}</strong></div>
       <div><span>Repeat interval</span><strong>${interval}</strong></div>
-      <div><span>Linked equipment</span><strong>${equipmentMarkup}</strong></div>
+      <div><span>Linked equipment</span><div>${equipmentMarkup}</div></div>
       <div class="history-list"><strong>Recent completions</strong>${historyMarkup}</div>
       ${scheduleMarkup}
     </div>`;
