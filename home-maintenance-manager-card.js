@@ -46,7 +46,12 @@ class HomeMaintenanceManagerCard extends HTMLElement {
 
   _date(value) {
     if (!value) return "Not scheduled";
-    const date = new Date(value);
+    // Date-only values (such as equipment replacement dates) represent a
+    // local calendar day, not midnight UTC. Parse them at local noon so
+    // browsers west of UTC do not display the previous day.
+    const date = /^\\d{4}-\\d{2}-\\d{2}$/.test(String(value))
+      ? new Date(`${value}T12:00:00`)
+      : new Date(value);
     if (Number.isNaN(date.getTime())) return "Not scheduled";
     return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   }
