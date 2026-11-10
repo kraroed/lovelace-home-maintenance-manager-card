@@ -11,12 +11,13 @@ The card provides a household maintenance overview with task status, due dates, 
 - Maintenance summary counts, including overdue and due-today tasks.
 - List view with status filters and dynamically generated category filters.
 - Monthly calendar view with previous/next month navigation, a Today shortcut, and selectable dates.
-- History view with search and completion-date filters.
+- Completion history view with search and completion-date filters.
+- Dedicated schedule changes view showing configuration changes and manual reschedules, including previous/new schedule definitions, due dates, timestamps, and reasons.
 - Task details with inspection guides: how to inspect, what to look for, what to do if something is wrong, and safety precautions.
 - Clear schedule descriptions for interval, seasonal, annual month/day, and monthly weekday-pattern tasks.
 - Equipment records with installation dates, expected lifespan, replacement due dates, and links to maintenance tasks when the integration exposes those lifecycle attributes.
 - Mark-complete action with optional completion notes.
-- Reschedule action with a reason and retained schedule-change history.
+- Reschedule action with a reason and retained schedule-change history, visible in the dedicated schedule changes view.
 - Export permanent completion history as CSV, JSON, or both directly from the card.
 - Create a protected JSON property backup directly from the card; restore preview and confirmation remain available through the integration's Developer Tools actions.
 - Automatic discovery of Home Maintenance Manager entities; individual entity IDs are not required.
