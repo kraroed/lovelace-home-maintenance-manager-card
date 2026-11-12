@@ -347,7 +347,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
       const configuration = record.change_type === "configuration" || record.previous_schedule || record.new_schedule;
       return `<article class="history-record schedule-history-record">
         <div class="history-record-heading"><strong>${this._escape(record.task_name)}</strong><span>${this._escape(this._date(record.adjusted_at))}</span></div>
-        <div class="history-property" title="Integration instance: ${this._escape(record.integration_instance)}">Property · ${this._escape(record.integration_instance)}</div>
+        <div class="history-property" title="Property: ${this._escape(record.property_name)} · Instance: ${this._escape(record.integration_instance)}">Property · ${this._escape(record.property_name)}</div>
         <div class="schedule-change-kind">${configuration ? "Schedule configuration changed" : "Due date rescheduled"}</div>
         ${configuration ? `<div class="schedule-comparison"><div><span>Previous schedule</span><strong>${this._escape(scheduleLabel(record.previous_schedule))}</strong></div><div><span>New schedule</span><strong>${this._escape(scheduleLabel(record.new_schedule))}</strong></div></div>` : ""}
         <div class="schedule-due-comparison"><span>Due date: ${this._escape(this._date(record.previous_due))} → ${this._escape(this._date(record.next_due))}</span></div>
