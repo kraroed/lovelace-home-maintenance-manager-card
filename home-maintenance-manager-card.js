@@ -53,6 +53,10 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     return date;
   }
 
+  _taskKey(attrs, fallback = "") {
+    return `${attrs?.integration_instance || "default"}:${attrs?.task_id || fallback}`;
+  }
+
   _date(value) {
     if (!value) return "Not scheduled";
     const date = this._parseDate(value);
