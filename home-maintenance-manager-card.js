@@ -790,12 +790,12 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     const historyMarkup = this._renderHistory(historyTasks, equipment);
     const equipmentMarkup = equipment.length
       ? equipment.map((item) => {
-         const instance = attrs.integration_instance || "default";
-         const ids = Array.isArray(attrs.task_ids) ? attrs.task_ids : [];
-         const linked = tasks.filter(({ state }) => ids.includes(state.attributes?.task_id) &&
-           (state.attributes?.integration_instance || "default") === instance);
-         const links = linked.length ? linked.map(({ state }) => '<button class="equipment-task" data-open-equipment-task-key="' + this._escape(this._taskKey(state.attributes, state.entity_id)) + '">' + this._escape((state.attributes.friendly_name || state.entity_id).replace(/ Status$/, "")) + '</button>').join("") : '<span class="muted">No linked tasks</span>';
         const attrs = item.attributes || {};
+        const instance = attrs.integration_instance || "default";
+        const ids = Array.isArray(attrs.task_ids) ? attrs.task_ids : [];
+        const linked = tasks.filter(({ state }) => ids.includes(state.attributes?.task_id) &&
+          (state.attributes?.integration_instance || "default") === instance);
+        const links = linked.length ? linked.map(({ state }) => '<button class="equipment-task" data-open-equipment-task-key="' + this._escape(this._taskKey(state.attributes, state.entity_id)) + '">' + this._escape((state.attributes.friendly_name || state.entity_id).replace(/ Status$/, "")) + '</button>').join("") : '<span class="muted">No linked tasks</span>';
         const metadata = [attrs.manufacturer, attrs.model].filter(Boolean).join(" ");
         const lifecycle = [];
         if (attrs.installed_date) lifecycle.push("Installed " + this._escape(this._date(attrs.installed_date)));
