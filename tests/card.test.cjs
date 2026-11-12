@@ -157,3 +157,73 @@ test('schedule history deduplication is scoped to each integration instance', ()
   const html = historyCard._renderScheduleHistory(tasks);
   assert.match(html, /Showing 2 of 2 schedule changes/);
 });
+
+
+test('completion history visibly identifies the originating property instance', () => {
+  const historyCard = new context.CardUnderTest();
+  historyCard._historySearch = '';
+  historyCard._historyFrom = '';
+  historyCard._historyTo = '';
+  historyCard._escape = (value) => String(value ?? '');
+  historyCard._date = (value) => String(value ?? '');
+  const tasks = ['property-one', 'property-two'].map((instance) => ({
+    state: { entity_id: `sensor.${instance}_gutters_status`, attributes: {
+      task_id: 'clean_gutters', integration_instance: instance,
+      friendly_name: 'Clean gutters Status',
+      completion_history: [{ history_id: 'same-history-id', completed_at: '2026-11-12T12:00:00+00:00' }],
+    } },
+  }));
+  const html = historyCard._renderHistory(tasks, []);
+  assert.match(html, /Property · property-one/);
+  assert.match(html, /Property · property-two/);
+});
+
+test('schedule history visibly identifies the originating property instance', () => {
+  const historyCard = new context.CardUnderTest();
+  historyCard._historySearch = '';
+  historyCard._historyFrom = '';
+  historyCard._historyTo = '';
+  historyCard._escape = (value) => String(value ?? '');
+  historyCard._date = (value) => String(value ?? '');
+  const tasks = ['property-one', 'property-two'].map((instance) => ({
+    state: { entity_id: `sensor.${instance}_gutters_status`, attributes: {
+      task_id: 'clean_gutters', integration_instance: instance,
+      friendly_name: 'Clean gutters Status',
+      schedule_history: [{ history_id: 'same-schedule-id', adjusted_at: '2026-11-12T12:00:00+00:00', previous_due: '2026-11-01', next_due: '2026-12-01', reason: 'Moved date' }],
+    } },
+  }));
+  const html = historyCard._renderScheduleHistory(tasks);
+  assert.match(html, /Property · property-one/);
+  assert.match(html, /Property · property-two/);
+});
+
+test('completion service request includes the exact property instance', () => {
+  const first = card._buildTaskActionRequest({
+    dataset: { action: 'complete', taskId: 'clean_gutters', instance: 'property-one' },
+    querySelector: () => ({ value: 'Finished' }),
+  });
+  const second = card._buildTaskActionRequest({
+    dataset: { action: 'complete', taskId: 'clean_gutters', instance: 'property-two' },
+    querySelector: () => ({ value: 'Finished' }),
+  });
+  assert.equal(first.service, 'complete_task');
+  assert.deepEqual(JSON.parse(JSON.stringify(first.payload)), { task_id: 'clean_gutters', integration_instance: 'property-one', notes: 'Finished' });
+  assert.equal(second.payload.integration_instance, 'property-two');
+});
+
+test('reschedule service request includes property instance and validated due date', () => {
+  const request = card._buildTaskActionRequest({
+    dataset: { action: 'reschedule', taskId: 'clean_gutters', instance: 'property-two' },
+    querySelector: (selector) => ({ value: selector.includes('due_date') ? '2026-12-01' : 'Weather delay' }),
+  });
+  assert.equal(request.service, 'reschedule_task');
+  assert.deepEqual(JSON.parse(JSON.stringify(request.payload)), { task_id: 'clean_gutters', integration_instance: 'property-two', due_date: '2026-12-01', reason: 'Weather delay' });
+});
+
+test('reschedule request rejects invalid dates before calling Home Assistant', () => {
+  const request = card._buildTaskActionRequest({
+    dataset: { action: 'reschedule', taskId: 'clean_gutters', instance: 'property-two' },
+    querySelector: () => ({ value: '2026-02-30' }),
+  });
+  assert.equal(request, null);
+});
