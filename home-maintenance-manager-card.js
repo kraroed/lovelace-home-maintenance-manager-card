@@ -277,6 +277,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     const rows = filtered.length ? filtered.map((record) => `
       <article class="history-record">
         <div class="history-record-heading"><strong>${this._escape(record.task_name)}</strong><span>${this._escape(this._date(record.completed_at))}</span></div>
+        <div class="history-property" title="Integration instance: ${this._escape(record.integration_instance)}">Property · ${this._escape(record.integration_instance)}</div>
         ${record.equipment_names?.length ? `<div class="history-meta">Equipment: ${this._escape(record.equipment_names.join(", "))}</div>` : ""}
         ${record.notes ? `<p>${this._escape(record.notes)}</p>` : ""}
       </article>`).join("") : '<div class="empty">No completion records match these filters.</div>';
@@ -344,6 +345,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
       const configuration = record.change_type === "configuration" || record.previous_schedule || record.new_schedule;
       return `<article class="history-record schedule-history-record">
         <div class="history-record-heading"><strong>${this._escape(record.task_name)}</strong><span>${this._escape(this._date(record.adjusted_at))}</span></div>
+        <div class="history-property" title="Integration instance: ${this._escape(record.integration_instance)}">Property · ${this._escape(record.integration_instance)}</div>
         <div class="schedule-change-kind">${configuration ? "Schedule configuration changed" : "Due date rescheduled"}</div>
         ${configuration ? `<div class="schedule-comparison"><div><span>Previous schedule</span><strong>${this._escape(scheduleLabel(record.previous_schedule))}</strong></div><div><span>New schedule</span><strong>${this._escape(scheduleLabel(record.new_schedule))}</strong></div></div>` : ""}
         <div class="schedule-due-comparison"><span>Due date: ${this._escape(this._date(record.previous_due))} → ${this._escape(this._date(record.next_due))}</span></div>
@@ -666,6 +668,26 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     return interval > 0 ? `Every ${interval} days` : "Interval schedule";
   }
 
+  _buildTaskActionRequest(form) {
+    const actionType = form.dataset.action;
+    const payload = {
+      task_id: form.dataset.taskId,
+      integration_instance: form.dataset.instance || "default",
+    };
+    if (actionType === "reschedule") {
+      const dueDate = form.querySelector('[name="due_date"]').value;
+      if (!this._isValidDateKey(dueDate)) return null;
+      payload.due_date = dueDate;
+      payload.reason = form.querySelector('[name="reason"]').value.trim();
+    } else {
+      payload.notes = form.querySelector('[name="notes"]').value.trim();
+    }
+    return {
+      service: actionType === "reschedule" ? "reschedule_task" : "complete_task",
+      payload,
+    };
+  }
+
   _renderTask(item, equipment) {
     const state = item.state;
     const attrs = state.attributes || {};
@@ -858,7 +880,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
         .task-main{min-width:0}.task-name{font-weight:600}.meta{margin-top:3px}.description{font-size:.82rem;margin-top:5px;color:var(--secondary-text-color)}
         .details-toggle{border:0;background:none;color:var(--primary-color);padding:6px 0 0;cursor:pointer;font:inherit;font-size:.8rem}.task-details{margin-top:10px;padding:10px;border-radius:8px;background:var(--secondary-background-color);display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;font-size:.82rem}.task-details>div:not(.history-list){display:flex;flex-direction:column;gap:3px}.task-details span{color:var(--secondary-text-color)}.inspection-guide{grid-column:1/-1;border-bottom:1px solid var(--divider-color);padding-bottom:10px}.inspection-guide-title{display:block;font-size:.9rem;margin-bottom:8px}.inspection-guide-section{display:block!important;margin-top:8px;padding:0;border:0}.inspection-guide-section strong{display:block;color:var(--primary-text-color);margin-bottom:3px}.inspection-guide-section ul{margin:3px 0 0;padding-left:20px}.inspection-guide-section li{margin:3px 0}.inspection-guide-section p{margin:3px 0;color:var(--secondary-text-color)}.history-list{grid-column:1/-1;border-top:1px solid var(--divider-color);padding-top:8px}.history-item{display:flex;flex-direction:column;gap:2px;padding:7px 0;border-top:1px solid var(--divider-color)}
         .maintenance-tools{display:flex;align-items:end;gap:8px;flex-wrap:wrap;padding:0 16px 12px}.maintenance-tools label{display:flex;flex-direction:column;gap:4px;font-size:.75rem;color:var(--secondary-text-color)}.maintenance-tools select,.maintenance-tools button{border:1px solid var(--divider-color);border-radius:16px;padding:7px 10px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;font-size:.8rem}.maintenance-tools button{cursor:pointer}.maintenance-tools button:hover{border-color:var(--primary-color)}
-        .history-view{padding:10px 16px 16px}.history-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end}.history-controls>input,.history-controls label input{box-sizing:border-box;width:100%;min-width:0;border:1px solid var(--divider-color);border-radius:7px;padding:9px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit}.history-controls>input{grid-column:1/-1}.history-controls label{font-size:.78rem;color:var(--secondary-text-color)}.history-controls label input{display:block;margin-top:3px}.history-controls button{justify-self:start;border:0;background:var(--secondary-background-color);color:var(--primary-text-color);border-radius:16px;padding:7px 12px;cursor:pointer}.history-result-count{font-size:.8rem;color:var(--secondary-text-color);padding:12px 0 4px}.history-record{border-top:1px solid var(--divider-color);padding:11px 0;font-size:.85rem}.history-record-heading{display:flex;justify-content:space-between;gap:8px}.history-record-heading span,.history-meta{color:var(--secondary-text-color);font-size:.8rem}.history-record p{margin:6px 0}.history-note{font-size:.75rem;color:var(--secondary-text-color);margin-top:12px}.schedule-change-kind{font-size:.78rem;color:var(--primary-color);margin-top:5px}.schedule-comparison{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.schedule-comparison>div{display:flex;flex-direction:column;gap:3px;padding:8px;border-radius:7px;background:var(--secondary-background-color)}.schedule-comparison span,.schedule-due-comparison{font-size:.75rem;color:var(--secondary-text-color)}.schedule-comparison strong{font-size:.84rem;color:var(--primary-text-color)}.schedule-due-comparison{margin-top:7px}
+        .history-view{padding:10px 16px 16px}.history-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end}.history-controls>input,.history-controls label input{box-sizing:border-box;width:100%;min-width:0;border:1px solid var(--divider-color);border-radius:7px;padding:9px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit}.history-controls>input{grid-column:1/-1}.history-controls label{font-size:.78rem;color:var(--secondary-text-color)}.history-controls label input{display:block;margin-top:3px}.history-controls button{justify-self:start;border:0;background:var(--secondary-background-color);color:var(--primary-text-color);border-radius:16px;padding:7px 12px;cursor:pointer}.history-result-count{font-size:.8rem;color:var(--secondary-text-color);padding:12px 0 4px}.history-record{border-top:1px solid var(--divider-color);padding:11px 0;font-size:.85rem}.history-property{font-size:.74rem;color:var(--secondary-text-color);margin-top:3px;overflow-wrap:anywhere}.history-record-heading{display:flex;justify-content:space-between;gap:8px}.history-record-heading span,.history-meta{color:var(--secondary-text-color);font-size:.8rem}.history-record p{margin:6px 0}.history-note{font-size:.75rem;color:var(--secondary-text-color);margin-top:12px}.schedule-change-kind{font-size:.78rem;color:var(--primary-color);margin-top:5px}.schedule-comparison{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.schedule-comparison>div{display:flex;flex-direction:column;gap:3px;padding:8px;border-radius:7px;background:var(--secondary-background-color)}.schedule-comparison span,.schedule-due-comparison{font-size:.75rem;color:var(--secondary-text-color)}.schedule-comparison strong{font-size:.84rem;color:var(--primary-text-color)}.schedule-due-comparison{margin-top:7px}
         .task-inline-form{display:flex;flex-direction:column;gap:9px;width:min(100%,300px);box-sizing:border-box;padding:10px;border:1px solid var(--divider-color);border-radius:9px;background:var(--secondary-background-color);font-size:.82rem;position:relative;z-index:1;pointer-events:auto}.task-inline-form label{display:flex;flex-direction:column;gap:4px;color:var(--secondary-text-color)}.task-inline-form input,.task-inline-form textarea{box-sizing:border-box;width:100%;min-width:0;min-height:44px;border:1px solid var(--divider-color);border-radius:6px;padding:10px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit;position:relative;z-index:2;pointer-events:auto;touch-action:manipulation}.task-inline-form textarea{resize:vertical}.task-inline-form-actions{display:flex;justify-content:flex-end;gap:7px}.task-inline-form-actions button{border:1px solid var(--divider-color);border-radius:16px;padding:7px 11px;background:var(--card-background-color);color:var(--primary-text-color);cursor:pointer;font:inherit}.task-inline-form-actions button.complete{background:var(--success-color,var(--primary-color));color:var(--text-primary-color,#fff);border-color:transparent}.task-inline-form button:disabled{opacity:.55;cursor:wait}
         .task-actions{display:flex;align-items:flex-end;gap:7px;flex-direction:column;flex-shrink:0}.status{font-size:.75rem;font-weight:600;border-radius:12px;padding:3px 8px;background:var(--secondary-background-color)}
         .status.overdue{color:var(--error-color)}.status.due_today{color:var(--warning-color)}.status.due_soon{color:var(--primary-color)}
@@ -1008,27 +1030,17 @@ class HomeMaintenanceManagerCard extends HTMLElement {
       event.preventDefault();
       const submit = form.querySelector('button[type="submit"]');
       const actionType = form.dataset.action;
-      const payload = {
-        task_id: form.dataset.taskId,
-        integration_instance: form.dataset.instance,
-      };
-      if (actionType === "reschedule") {
-        const dueDate = form.querySelector('[name="due_date"]').value;
-        if (!this._isValidDateKey(dueDate)) {
-          window.alert("Enter a valid due date.");
-          return;
-        }
-        payload.due_date = dueDate;
-        payload.reason = form.querySelector('[name="reason"]').value.trim();
-      } else {
-        payload.notes = form.querySelector('[name="notes"]').value.trim();
+      const request = this._buildTaskActionRequest(form);
+      if (!request) {
+        window.alert("Enter a valid due date.");
+        return;
       }
       submit.disabled = true;
       try {
         await this._hass.callService(
           "home_maintenance_manager",
-          actionType === "reschedule" ? "reschedule_task" : "complete_task",
-          payload
+          request.service,
+          request.payload
         );
         this._taskActionForm = null;
         this.render();
