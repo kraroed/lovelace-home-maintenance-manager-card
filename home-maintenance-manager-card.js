@@ -786,7 +786,6 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     const historyMarkup = this._renderHistory(historyTasks, equipment);
     const equipmentMarkup = equipment.length
       ? equipment.map((item) => {
-        const attrs = item.attributes || {};
          const instance = attrs.integration_instance || "default";
          const ids = Array.isArray(attrs.task_ids) ? attrs.task_ids : [];
          const linked = tasks.filter(({ state }) => ids.includes(state.attributes?.task_id) &&
