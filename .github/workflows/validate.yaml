@@ -27,4 +27,6 @@ jobs:
       - name: Check card JavaScript syntax
         run: node --check home-maintenance-manager-card.js
       - name: Run card regression tests
+        env:
+          TZ: America/Los_Angeles
         run: node --test tests/*.test.cjs
