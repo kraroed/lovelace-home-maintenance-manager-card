@@ -138,6 +138,59 @@ class HomeMaintenanceManagerCard extends HTMLElement {
 
 
 
+  _renderInsights(insights) {
+    if (!insights?.available) {
+      return '<section class="insights-view"><div class="empty">Maintenance insights are not available yet. Update Home Maintenance Manager to v0.12.0 or newer and allow its sensors to refresh.</div></section>';
+    }
+    const windows = insights.windows || {};
+    const categories = Object.entries(insights.categories || {})
+      .filter(([, value]) => value.completed > 0)
+      .sort((a, b) => b[1].completed - a[1].completed);
+    const workload = insights.workload || {};
+    const history = (insights.backlog || []).slice(-30);
+    const metric = (key) => windows[key] || { completed: 0, completed_late: 0, completed_on_time: 0, late_rate: 0 };
+    const completionMarkup = [
+      ["30_days", "Last 30 days"],
+      ["90_days", "Last 90 days"],
+      ["365_days", "Last 365 days"],
+    ].map(([key, label]) => {
+      const value = metric(key);
+      return '<div class="insight-metric"><strong>' + value.completed + '</strong><span>' + label + '</span></div>';
+    }).join("");
+    const recent = metric("90_days");
+    const categoryMax = Math.max(1, ...categories.map(([, value]) => value.completed));
+    const categoryMarkup = categories.length
+      ? categories.map(([name, value]) => {
+          const width = Math.max(0, Math.min(100, value.completed / categoryMax * 100));
+          return '<div class="insight-category"><div><span>' + this._escape(name) + '</span><strong>' + value.completed + '</strong></div><div class="insight-track"><span style="width:' + width + '%"></span></div></div>';
+        }).join("")
+      : '<div class="empty">No completion history has been recorded yet.</div>';
+    const maxOverdue = Math.max(1, ...history.map((item) => item.overdue));
+    const trendMarkup = history.length
+      ? '<div class="insight-trend" role="img" aria-label="Overdue task count over the last ' + history.length + ' recorded days">' +
+        history.map((item) => {
+          const height = Math.max(3, item.overdue / maxOverdue * 100);
+          return '<div class="insight-trend-day" title="' + this._escape(item.date) + ': ' + item.overdue + ' overdue"><span style="height:' + height + '%"></span></div>';
+        }).join("") + '</div><div class="insight-trend-labels"><span>' + this._escape(history[0].date) + '</span><span>' + this._escape(history[history.length - 1].date) + '</span></div>'
+      : '<div class="empty">The backlog trend will appear after the first daily snapshot is recorded.</div>';
+    const count = (key) => Number(workload[key]) || 0;
+    return '<section class="insights-view">' +
+      '<h3>Completion activity</h3><div class="insight-metrics">' + completionMarkup + '</div>' +
+      '<div class="insight-quality"><div><strong>' + recent.completed_on_time + '</strong><span>On time · last 90 days</span></div>' +
+      '<div><strong>' + recent.completed_late + '</strong><span>Late · last 90 days</span></div>' +
+      '<div><strong>' + recent.late_rate + '%</strong><span>Completed late</span></div></div>' +
+      '<h3>Upcoming workload</h3><div class="insight-metrics insight-workload">' +
+      '<div class="insight-metric"><strong>' + count("next_7_days") + '</strong><span>Next 7 days</span></div>' +
+      '<div class="insight-metric"><strong>' + count("next_30_days") + '</strong><span>Next 30 days</span></div>' +
+      '<div class="insight-metric"><strong>' + count("next_90_days") + '</strong><span>Next 90 days</span></div></div>' +
+      '<div class="insight-quality"><div><strong>' + count("overdue") + '</strong><span>Overdue</span></div>' +
+      '<div><strong>' + count("due_today") + '</strong><span>Due today</span></div>' +
+      '<div><strong>' + count("unscheduled") + '</strong><span>Unscheduled</span></div></div>' +
+      '<h3>Completions by category</h3><div class="insight-categories">' + categoryMarkup + '</div>' +
+      '<h3>Overdue backlog trend</h3><p class="insight-description">Daily snapshots · latest ' + history.length + ' recorded days</p>' +
+      trendMarkup + '</section>';
+  }
+
   _renderAgenda(tasks, equipment) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -402,7 +455,74 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     const equipment = integrationStates.filter((state) =>
       state.entity_id.startsWith("sensor.") && state.attributes?.equipment_id
     );
+
+    // Insight attributes are repeated across several sensors for each
+    // integration entry. Read one copy per instance, then combine instances.
+    const insightByInstance = new Map();
+    integrationStates
+      .filter((state) => state.entity_id.startsWith("sensor."))
+      .forEach((state) => {
+        const attrs = state.attributes || {};
+        const instance = attrs.integration_instance || "default";
+        if (!insightByInstance.has(instance)) insightByInstance.set(instance, {});
+        const target = insightByInstance.get(instance);
+        if (!target.completion && attrs.completion_windows) {
+          target.completion = { windows: attrs.completion_windows, categories: attrs.completion_by_category || {} };
+        }
+        if (!target.workload && attrs.upcoming_workload) target.workload = attrs.upcoming_workload;
+        if (!target.backlog && Array.isArray(attrs.overdue_backlog_history)) {
+          target.backlog = attrs.overdue_backlog_history;
+        }
+      });
+    const insights = {
+      available: false,
+      windows: {},
+      categories: {},
+      workload: {},
+      backlog: [],
+    };
+    for (const data of insightByInstance.values()) {
+      if (data.completion) {
+        insights.available = true;
+        for (const [window, values] of Object.entries(data.completion.windows || {})) {
+          const bucket = insights.windows[window] ||= { completed: 0, completed_late: 0, completed_on_time: 0 };
+          bucket.completed += Number(values.completed) || 0;
+          bucket.completed_late += Number(values.completed_late) || 0;
+          bucket.completed_on_time += Number(values.completed_on_time) || 0;
+        }
+        for (const [category, values] of Object.entries(data.completion.categories || {})) {
+          const bucket = insights.categories[category] ||= { completed: 0, completed_late: 0, completed_on_time: 0 };
+          bucket.completed += Number(values.completed) || 0;
+          bucket.completed_late += Number(values.completed_late) || 0;
+          bucket.completed_on_time += Number(values.completed_on_time) || 0;
+        }
+      }
+      if (data.workload) {
+        insights.available = true;
+        for (const [key, value] of Object.entries(data.workload)) {
+          insights.workload[key] = (insights.workload[key] || 0) + (Number(value) || 0);
+        }
+      }
+      if (data.backlog) {
+        insights.available = true;
+        data.backlog.forEach((snapshot) => {
+          if (!snapshot?.date) return;
+          const bucket = insights.backlog.find((item) => item.date === snapshot.date);
+          if (bucket) bucket.overdue += Number(snapshot.overdue) || 0;
+          else insights.backlog.push({ date: snapshot.date, overdue: Number(snapshot.overdue) || 0 });
+        });
+      }
+    }
+    Object.values(insights.windows).forEach((bucket) => {
+      bucket.late_rate = bucket.completed ? Math.round(bucket.completed_late / bucket.completed * 1000) / 10 : 0;
+    });
+    Object.values(insights.categories).forEach((bucket) => {
+      bucket.completed_on_time = Math.max(0, bucket.completed - bucket.completed_late);
+    });
+    insights.backlog.sort((a, b) => a.date.localeCompare(b.date));
+
     return {
+      insights,
       tasks: taskSensors.map((state) => ({
         state,
         button: buttons.get(
@@ -556,7 +676,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
 
   render() {
     if (!this._hass || !this.config) return;
-    const { tasks, summaries, historyTasks, equipment } = this._discover();
+    const { tasks, summaries, historyTasks, equipment, insights } = this._discover();
     const count = (key) => summaries.get(key) ?? "—";
     const categories = [...new Set(tasks.map(({ state }) => state.attributes.category || "General"))].sort();
     const filtered = tasks.filter(({ state }) => {
@@ -607,7 +727,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
           <div class="stat"><strong>${this._escape(count("due_today"))}</strong><span>Due today</span></div>
           <div class="stat"><strong>${this._escape(count("due_soon"))}</strong><span>Due soon</span></div>
         </div>
-        <div class="view-toggle"><button data-view="list" class="${this._view === "list" ? "selected" : ""}">List view</button><button data-view="calendar" class="${this._view === "calendar" ? "selected" : ""}">Calendar</button><button data-view="agenda" class="${this._view === "agenda" ? "selected" : ""}">Schedule agenda</button><button data-view="equipment" class="${this._view === "equipment" ? "selected" : ""}">Equipment</button><button data-view="history" class="${this._view === "history" ? "selected" : ""}">Completions</button><button data-view="schedule-history" class="${this._view === "schedule-history" ? "selected" : ""}">Schedule changes</button></div>
+        <div class="view-toggle"><button data-view="list" class="${this._view === "list" ? "selected" : ""}">List view</button><button data-view="calendar" class="${this._view === "calendar" ? "selected" : ""}">Calendar</button><button data-view="agenda" class="${this._view === "agenda" ? "selected" : ""}">Schedule agenda</button><button data-view="insights" class="${this._view === "insights" ? "selected" : ""}">Insights</button><button data-view="equipment" class="${this._view === "equipment" ? "selected" : ""}">Equipment</button><button data-view="history" class="${this._view === "history" ? "selected" : ""}">Completions</button><button data-view="schedule-history" class="${this._view === "schedule-history" ? "selected" : ""}">Schedule changes</button></div>
         <div class="maintenance-tools">
           <label>History export
             <select data-export-format>
@@ -625,7 +745,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
           <button data-filter="due_today" class="${this._filter === "due_today" ? "selected" : ""}">Due today</button>
           <button data-filter="upcoming" class="${this._filter === "upcoming" ? "selected" : ""}">Upcoming</button>
         </div>
-        ${this._view === "calendar" ? calendarMarkup : this._view === "agenda" ? this._renderAgenda(tasks, equipment) : this._view === "equipment" ? this._renderEquipmentView(equipment, tasks) : this._view === "history" ? historyMarkup : this._view === "schedule-history" ? this._renderScheduleHistory(historyTasks) : categoryMarkup}
+        ${this._view === "calendar" ? calendarMarkup : this._view === "agenda" ? this._renderAgenda(tasks, equipment) : this._view === "insights" ? this._renderInsights(insights) : this._view === "equipment" ? this._renderEquipmentView(equipment, tasks) : this._view === "history" ? historyMarkup : this._view === "schedule-history" ? this._renderScheduleHistory(historyTasks) : categoryMarkup}
         ${this._equipmentTask ? '<div class="active-filter">Showing selected equipment task <button data-clear-task>Clear</button></div>' : ""}
         ${this._view === "list" ? `<div class="task-result-count">Showing ${filtered.length} of ${tasks.length} tasks</div>` : ""}
         ${this._view === "list" ? `<div class="tasks">${taskMarkup}</div>` : ""}
@@ -638,7 +758,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
         .stat{background:var(--secondary-background-color);border-radius:10px;padding:10px 6px;text-align:center;display:flex;flex-direction:column;gap:3px}
         .stat strong{font-size:1.35rem}.stat span{font-size:.75rem;color:var(--secondary-text-color)}.warning strong{color:var(--error-color)}
         .view-toggle{display:flex;gap:7px;padding:0 16px 12px}.view-toggle button,.calendar-toolbar button{border:0;border-radius:16px;padding:7px 12px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}.view-toggle button.selected{background:var(--primary-color);color:var(--text-primary-color,#fff)}
-        .agenda-section{padding:8px 16px 16px}.agenda-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:4px 0 14px}.agenda-overview>div{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 5px;border-radius:9px;background:var(--secondary-background-color)}.agenda-overview strong{font-size:1.25rem}.agenda-overview span{font-size:.72rem;color:var(--secondary-text-color);text-align:center}.agenda-group{margin-top:12px}.agenda-group h3{margin:8px 0}.agenda-date h4{font-size:.88rem;margin:12px 0 2px;color:var(--primary-text-color)}.calendar-section{padding:8px 12px 14px}.calendar-toolbar{display:flex;align-items:center;justify-content:center;gap:12px;padding:6px 0 12px}.calendar-toolbar strong{min-width:150px;text-align:center}.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}.calendar-weekday{text-align:center;font-size:.72rem;color:var(--secondary-text-color);padding:5px 0}.calendar-day{min-width:0;min-height:74px;padding:4px;border:1px solid var(--divider-color);border-radius:7px;background:var(--card-background-color);color:var(--primary-text-color);text-align:left;display:flex;flex-direction:column;gap:3px;cursor:pointer}.calendar-day>strong{font-size:.8rem}.calendar-day.outside{opacity:.42}.calendar-day.selected{outline:2px solid var(--primary-color);background:var(--secondary-background-color)}.calendar-day.has-tasks>strong{color:var(--primary-color)}.calendar-task,.calendar-more{font-size:.62rem;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:3px;background:var(--secondary-background-color);padding:2px}.calendar-more{color:var(--secondary-text-color)}.calendar-selected{padding-top:10px}.calendar-selected h3{margin-bottom:6px}
+        .insights-view{padding:8px 16px 16px}.insights-view h3{margin-top:18px}.insight-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.insight-metric,.insight-quality>div{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;padding:12px 6px;border-radius:9px;background:var(--secondary-background-color);text-align:center}.insight-metric strong,.insight-quality strong{font-size:1.35rem;font-weight:650}.insight-metric span,.insight-quality span{font-size:.72rem;color:var(--secondary-text-color)}.insight-quality{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}.insight-category{margin:10px 0}.insight-category>div:first-child{display:flex;justify-content:space-between;gap:8px;font-size:.82rem;margin-bottom:5px}.insight-track{height:7px;border-radius:8px;background:var(--secondary-background-color);overflow:hidden}.insight-track span{display:block;height:100%;border-radius:8px;background:var(--primary-color)}.insight-description{font-size:.76rem;color:var(--secondary-text-color);margin:0 0 8px}.insight-trend{height:116px;display:flex;align-items:flex-end;gap:3px;padding:8px 0 0;border-bottom:1px solid var(--divider-color)}.insight-trend-day{height:100%;flex:1;min-width:2px;display:flex;align-items:flex-end}.insight-trend-day span{display:block;width:100%;min-height:3px;border-radius:3px 3px 0 0;background:var(--primary-color)}.insight-trend-labels{display:flex;justify-content:space-between;font-size:.7rem;color:var(--secondary-text-color);margin-top:5px}..agenda-section{padding:8px 16px 16px}.agenda-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:4px 0 14px}.agenda-overview>div{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 5px;border-radius:9px;background:var(--secondary-background-color)}.agenda-overview strong{font-size:1.25rem}.agenda-overview span{font-size:.72rem;color:var(--secondary-text-color);text-align:center}.agenda-group{margin-top:12px}.agenda-group h3{margin:8px 0}.agenda-date h4{font-size:.88rem;margin:12px 0 2px;color:var(--primary-text-color)}.calendar-section{padding:8px 12px 14px}.calendar-toolbar{display:flex;align-items:center;justify-content:center;gap:12px;padding:6px 0 12px}.calendar-toolbar strong{min-width:150px;text-align:center}.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}.calendar-weekday{text-align:center;font-size:.72rem;color:var(--secondary-text-color);padding:5px 0}.calendar-day{min-width:0;min-height:74px;padding:4px;border:1px solid var(--divider-color);border-radius:7px;background:var(--card-background-color);color:var(--primary-text-color);text-align:left;display:flex;flex-direction:column;gap:3px;cursor:pointer}.calendar-day>strong{font-size:.8rem}.calendar-day.outside{opacity:.42}.calendar-day.selected{outline:2px solid var(--primary-color);background:var(--secondary-background-color)}.calendar-day.has-tasks>strong{color:var(--primary-color)}.calendar-task,.calendar-more{font-size:.62rem;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:3px;background:var(--secondary-background-color);padding:2px}.calendar-more{color:var(--secondary-text-color)}.calendar-selected{padding-top:10px}.calendar-selected h3{margin-bottom:6px}
         .filters{display:flex;gap:6px;padding:0 16px 12px;flex-wrap:wrap}.filters button,.complete{border:0;border-radius:18px;padding:7px 11px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}
         .filters button.selected,.category-filters button.selected{background:var(--primary-color);color:var(--text-primary-color,#fff)}
          .task-search{padding:0 16px 10px}.task-search input{box-sizing:border-box;width:100%;border:1px solid var(--divider-color);border-radius:8px;padding:10px 12px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit}.task-result-count{padding:0 16px 8px;font-size:.76rem;color:var(--secondary-text-color)}.category-filters{display:flex;gap:6px;padding:0 16px 10px;flex-wrap:wrap}.category-filters button,.equipment-task,.active-filter button{border:0;border-radius:16px;padding:6px 10px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer;font:inherit;font-size:.8rem}.equipment-task,.active-filter button{background:none;color:var(--primary-color);text-decoration:underline;padding:3px 5px}.active-filter{padding:0 16px 10px;font-size:.82rem;color:var(--secondary-text-color)}
