@@ -94,8 +94,8 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     tasks.forEach((item) => {
       const value = item.state.attributes?.next_due;
       if (!value) return;
-      const due = new Date(value);
-      if (Number.isNaN(due.getTime())) return;
+      const due = this._parseDate(value);
+      if (!due) return;
       const key = this._calendarKey(due);
       if (!dueByDate.has(key)) dueByDate.set(key, []);
       dueByDate.get(key).push(item);
@@ -201,8 +201,8 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     const dueDate = (item) => {
       const value = item.state.attributes?.next_due;
       if (!value) return null;
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return null;
+      const date = this._parseDate(value);
+      if (!date) return null;
       date.setHours(0, 0, 0, 0);
       return date;
     };
@@ -763,7 +763,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
       const attrs = state.attributes || {};
       const category = attrs.category || "General";
       if (this._category !== "all" && category !== this._category) return false;
-      if (this._equipmentTask && attrs.task_id !== this._equipmentTask) return false;
+      if (this._equipmentTask && this._taskKey(attrs, state.entity_id) !== this._equipmentTask) return false;
       if (this._taskSearch.trim()) {
         const linkedEquipment = equipment.filter((entry) =>
           (attrs.equipment_ids || []).includes(entry.attributes?.equipment_id) &&
@@ -786,9 +786,12 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     const historyMarkup = this._renderHistory(historyTasks, equipment);
     const equipmentMarkup = equipment.length
       ? equipment.map((item) => {
-        const ids = item.attributes.task_ids || [];
-        const linked = tasks.filter(({ state }) => ids.includes(state.attributes.task_id));
-        const links = linked.length ? linked.map(({ state }) => '<button class="equipment-task" data-open-equipment-task-id="' + this._escape(this._taskKey(state.attributes, state.entity_id)) + '">' + this._escape((state.attributes.friendly_name || state.entity_id).replace(/ Status$/, "")) + '</button>').join("") : '<span class="muted">No linked tasks</span>';
+        const attrs = item.attributes || {};
+         const instance = attrs.integration_instance || "default";
+         const ids = Array.isArray(attrs.task_ids) ? attrs.task_ids : [];
+         const linked = tasks.filter(({ state }) => ids.includes(state.attributes?.task_id) &&
+           (state.attributes?.integration_instance || "default") === instance);
+         const links = linked.length ? linked.map(({ state }) => '<button class="equipment-task" data-open-equipment-task-key="' + this._escape(this._taskKey(state.attributes, state.entity_id)) + '">' + this._escape((state.attributes.friendly_name || state.entity_id).replace(/ Status$/, "")) + '</button>').join("") : '<span class="muted">No linked tasks</span>';
         const attrs = item.attributes || {};
         const metadata = [attrs.manufacturer, attrs.model].filter(Boolean).join(" ");
         const lifecycle = [];
