@@ -44,26 +44,30 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     })[char]);
   }
 
+  _parseDate(value) {
+    if (!value) return null;
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value));
+    const date = match ? new Date(+match[1], +match[2] - 1, +match[3], 12) : new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    if (match && (date.getFullYear() !== +match[1] || date.getMonth() !== +match[2] - 1 || date.getDate() !== +match[3])) return null;
+    return date;
+  }
+
+  _taskKey(attrs, fallback = "") {
+    return `${attrs?.integration_instance || "default"}:${attrs?.task_id || fallback}`;
+  }
+
   _date(value) {
     if (!value) return "Not scheduled";
-    // Date-only values (such as equipment replacement dates) represent a
-    // local calendar day, not midnight UTC. Parse them at local noon so
-    // browsers west of UTC do not display the previous day.
-    const date = /^\\d{4}-\\d{2}-\\d{2}$/.test(String(value))
-      ? new Date(`${value}T12:00:00`)
-      : new Date(value);
-    if (Number.isNaN(date.getTime())) return "Not scheduled";
+    const date = this._parseDate(value);
+    if (!date) return "Not scheduled";
     return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   }
 
   _daysOverdue(value) {
     if (!value) return 0;
-    // Compare local calendar dates so timezone offsets do not change the
-    // number of days a maintenance task has been overdue.
-    const due = /^\\d{4}-\\d{2}-\\d{2}$/.test(String(value))
-      ? new Date(`${value}T12:00:00`)
-      : new Date(value);
-    if (Number.isNaN(due.getTime())) return 0;
+    const due = this._parseDate(value);
+    if (!due) return 0;
     const today = new Date();
     const dueDay = Date.UTC(due.getFullYear(), due.getMonth(), due.getDate());
     const todayDay = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
@@ -94,8 +98,8 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     tasks.forEach((item) => {
       const value = item.state.attributes?.next_due;
       if (!value) return;
-      const due = new Date(value);
-      if (Number.isNaN(due.getTime())) return;
+      const due = this._parseDate(value);
+      if (!due) return;
       const key = this._calendarKey(due);
       if (!dueByDate.has(key)) dueByDate.set(key, []);
       dueByDate.get(key).push(item);
@@ -201,8 +205,8 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     const dueDate = (item) => {
       const value = item.state.attributes?.next_due;
       if (!value) return null;
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return null;
+      const date = this._parseDate(value);
+      if (!date) return null;
       date.setHours(0, 0, 0, 0);
       return date;
     };
@@ -378,7 +382,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
         ? linked.find(({ state }) => state.attributes?.task_id === attrs.replacement_task_id)
         : null;
       const taskMarkup = linked.length
-        ? linked.map((item) => `<div class="equipment-linked-task">${this._renderTask(item, equipment)}<button class="equipment-task-open" data-open-equipment-task-id="${this._escape(item.state.attributes?.task_id)}">Open in task list</button></div>`).join("")
+        ? linked.map((item) => `<div class="equipment-linked-task">${this._renderTask(item, equipment)}<button class="equipment-task-open" data-open-equipment-task-key="${this._escape(this._taskKey(item.state.attributes, item.state.entity_id))}">Open in task list</button></div>`).join("")
         : '<div class="empty equipment-empty">No active maintenance tasks are linked to this equipment.</div>';
       return `
         <article class="equipment-card ${this._selectedEquipmentId === `${instance}:${attrs.equipment_id}` ? "selected" : ""}" data-equipment-card="${this._escape(`${instance}:${attrs.equipment_id}`)}">
@@ -763,7 +767,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
       const attrs = state.attributes || {};
       const category = attrs.category || "General";
       if (this._category !== "all" && category !== this._category) return false;
-      if (this._equipmentTask && attrs.task_id !== this._equipmentTask) return false;
+      if (this._equipmentTask && this._taskKey(attrs, state.entity_id) !== this._equipmentTask) return false;
       if (this._taskSearch.trim()) {
         const linkedEquipment = equipment.filter((entry) =>
           (attrs.equipment_ids || []).includes(entry.attributes?.equipment_id) &&
@@ -786,10 +790,12 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     const historyMarkup = this._renderHistory(historyTasks, equipment);
     const equipmentMarkup = equipment.length
       ? equipment.map((item) => {
-        const ids = item.attributes.task_ids || [];
-        const linked = tasks.filter(({ state }) => ids.includes(state.attributes.task_id));
-        const links = linked.length ? linked.map(({ state }) => '<button class="equipment-task" data-open-equipment-task-id="' + this._escape(state.attributes.task_id) + '">' + this._escape((state.attributes.friendly_name || state.entity_id).replace(/ Status$/, "")) + '</button>').join("") : '<span class="muted">No linked tasks</span>';
         const attrs = item.attributes || {};
+        const instance = attrs.integration_instance || "default";
+        const ids = Array.isArray(attrs.task_ids) ? attrs.task_ids : [];
+        const linked = tasks.filter(({ state }) => ids.includes(state.attributes?.task_id) &&
+          (state.attributes?.integration_instance || "default") === instance);
+        const links = linked.length ? linked.map(({ state }) => '<button class="equipment-task" data-open-equipment-task-key="' + this._escape(this._taskKey(state.attributes, state.entity_id)) + '">' + this._escape((state.attributes.friendly_name || state.entity_id).replace(/ Status$/, "")) + '</button>').join("") : '<span class="muted">No linked tasks</span>';
         const metadata = [attrs.manufacturer, attrs.model].filter(Boolean).join(" ");
         const lifecycle = [];
         if (attrs.installed_date) lifecycle.push("Installed " + this._escape(this._date(attrs.installed_date)));
@@ -968,8 +974,8 @@ class HomeMaintenanceManagerCard extends HTMLElement {
       this._detailTaskKey = this._detailTaskKey === button.dataset.details ? null : button.dataset.details;
       this.render();
     }));
-    this.querySelectorAll("[data-open-equipment-task-id]").forEach((button) => button.addEventListener("click", () => {
-      this._equipmentTask = button.dataset.openEquipmentTaskId;
+    this.querySelectorAll("[data-open-equipment-task-key]").forEach((button) => button.addEventListener("click", () => {
+      this._equipmentTask = button.dataset.openEquipmentTaskKey;
       this._category = "all";
       this._filter = "all";
       this._taskSearch = "";
