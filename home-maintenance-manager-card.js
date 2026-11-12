@@ -497,7 +497,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     }, { equipment: 0, areaTaskAssignments: 0, overdue: 0 });
     return `<section class="areas-view">
       <div class="areas-overview">
-        <div><strong>${ordered.length}</strong><span>Areas</span></div>
+        <div><strong>${ordered.filter((group) => group.id).length}</strong><span>Areas</span></div>
         <div><strong>${totals.equipment}</strong><span>Equipment</span></div>
         <div><strong>${totals.overdue}</strong><span>Overdue assignments</span></div>
       </div>
