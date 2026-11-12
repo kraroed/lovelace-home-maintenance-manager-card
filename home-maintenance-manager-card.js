@@ -44,26 +44,26 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     })[char]);
   }
 
+  _parseDate(value) {
+    if (!value) return null;
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value));
+    const date = match ? new Date(+match[1], +match[2] - 1, +match[3], 12) : new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    if (match && (date.getFullYear() !== +match[1] || date.getMonth() !== +match[2] - 1 || date.getDate() !== +match[3])) return null;
+    return date;
+  }
+
   _date(value) {
     if (!value) return "Not scheduled";
-    // Date-only values (such as equipment replacement dates) represent a
-    // local calendar day, not midnight UTC. Parse them at local noon so
-    // browsers west of UTC do not display the previous day.
-    const date = /^\\d{4}-\\d{2}-\\d{2}$/.test(String(value))
-      ? new Date(`${value}T12:00:00`)
-      : new Date(value);
-    if (Number.isNaN(date.getTime())) return "Not scheduled";
+    const date = this._parseDate(value);
+    if (!date) return "Not scheduled";
     return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   }
 
   _daysOverdue(value) {
     if (!value) return 0;
-    // Compare local calendar dates so timezone offsets do not change the
-    // number of days a maintenance task has been overdue.
-    const due = /^\\d{4}-\\d{2}-\\d{2}$/.test(String(value))
-      ? new Date(`${value}T12:00:00`)
-      : new Date(value);
-    if (Number.isNaN(due.getTime())) return 0;
+    const due = this._parseDate(value);
+    if (!due) return 0;
     const today = new Date();
     const dueDay = Date.UTC(due.getFullYear(), due.getMonth(), due.getDate());
     const todayDay = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
