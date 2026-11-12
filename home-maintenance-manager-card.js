@@ -426,6 +426,86 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     </section>`;
   }
 
+  _renderAreasView(tasks, equipment) {
+    const groups = new Map();
+    const ensure = (id, name) => {
+      const key = id || "unassigned";
+      if (!groups.has(key)) groups.set(key, {
+        id, name: id ? (name || "Area") : "Unassigned",
+        equipment: [], tasks: new Map(),
+      });
+      const group = groups.get(key);
+      if (id && name && group.name === "Area") group.name = name;
+      return group;
+    };
+    equipment.forEach((entry) => {
+      const attrs = entry.attributes || {};
+      const areaId = attrs.area_id || null;
+      ensure(areaId, attrs.area_name).equipment.push(entry);
+    });
+    tasks.forEach((item) => {
+      const attrs = item.state.attributes || {};
+      const ids = Array.isArray(attrs.area_ids) ? attrs.area_ids : [];
+      const names = Array.isArray(attrs.area_names) ? attrs.area_names : [];
+      if (!ids.length) {
+        ensure(null, null).tasks.set(
+          `${attrs.integration_instance || "default"}:${attrs.task_id || item.state.entity_id}`, item
+        );
+        return;
+      }
+      ids.forEach((id, index) => {
+        ensure(id, names[index]).tasks.set(
+          `${attrs.integration_instance || "default"}:${attrs.task_id || item.state.entity_id}`, item
+        );
+      });
+    });
+    if (!groups.size) {
+      return '<section class="areas-view"><div class="empty">No areas, equipment, or maintenance tasks are available yet.</div></section>';
+    }
+    const ordered = [...groups.values()].sort((a, b) =>
+      a.name === "Unassigned" ? 1 : b.name === "Unassigned" ? -1 : a.name.localeCompare(b.name)
+    );
+    const cards = ordered.map((group) => {
+      const linkedTasks = [...group.tasks.values()];
+      const overdue = linkedTasks.filter(({ state }) => state.state === "overdue").length;
+      const dueToday = linkedTasks.filter(({ state }) => state.state === "due_today").length;
+      const upcoming = linkedTasks.filter(({ state }) => state.state === "due_soon").length;
+      const equipmentMarkup = group.equipment.length
+        ? `<div class="area-equipment"><h4>Equipment · ${group.equipment.length}</h4><div>${group.equipment.map((entry) => {
+          const attrs = entry.attributes || {};
+          return `<span class="area-equipment-item">${this._escape(attrs.friendly_name || entry.state)}</span>`;
+        }).join("")}</div></div>`
+        : "";
+      const taskMarkup = linkedTasks.length
+        ? linkedTasks.map((item) => `<div class="area-task">${this._renderTask(item, equipment)}</div>`).join("")
+        : '<div class="empty area-empty">No maintenance tasks assigned to this area.</div>';
+      return `<article class="area-card">
+        <div class="area-card-heading"><div><h3>${this._escape(group.name)}</h3><span>${group.equipment.length} equipment · ${linkedTasks.length} tasks</span></div>
+          <div class="area-status">
+            <span>${overdue} overdue</span><span>${dueToday} due today</span><span>${upcoming} upcoming</span>
+          </div>
+        </div>
+        ${equipmentMarkup}
+        <div class="area-tasks"><h4>Maintenance tasks</h4>${taskMarkup}</div>
+      </article>`;
+    }).join("");
+    const totals = ordered.reduce((result, group) => {
+      result.equipment += group.equipment.length;
+      result.areaTaskAssignments += group.tasks.size;
+      result.overdue += [...group.tasks.values()].filter(({ state }) => state.state === "overdue").length;
+      return result;
+    }, { equipment: 0, areaTaskAssignments: 0, overdue: 0 });
+    return `<section class="areas-view">
+      <div class="areas-overview">
+        <div><strong>${ordered.length}</strong><span>Areas</span></div>
+        <div><strong>${totals.equipment}</strong><span>Equipment</span></div>
+        <div><strong>${totals.overdue}</strong><span>Overdue assignments</span></div>
+      </div>
+      <p class="areas-note">Tasks linked to equipment appear in each area containing linked equipment. Unlinked tasks can be assigned an area in the integration settings.</p>
+      ${cards}
+    </section>`;
+  }
+
   _discover() {
     const states = Object.values(this._hass?.states || {});
     const integrationStates = states.filter((state) =>
@@ -727,7 +807,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
           <div class="stat"><strong>${this._escape(count("due_today"))}</strong><span>Due today</span></div>
           <div class="stat"><strong>${this._escape(count("due_soon"))}</strong><span>Due soon</span></div>
         </div>
-        <div class="view-toggle"><button data-view="list" class="${this._view === "list" ? "selected" : ""}">List view</button><button data-view="calendar" class="${this._view === "calendar" ? "selected" : ""}">Calendar</button><button data-view="agenda" class="${this._view === "agenda" ? "selected" : ""}">Schedule agenda</button><button data-view="insights" class="${this._view === "insights" ? "selected" : ""}">Insights</button><button data-view="equipment" class="${this._view === "equipment" ? "selected" : ""}">Equipment</button><button data-view="history" class="${this._view === "history" ? "selected" : ""}">Completions</button><button data-view="schedule-history" class="${this._view === "schedule-history" ? "selected" : ""}">Schedule changes</button></div>
+        <div class="view-toggle"><button data-view="list" class="${this._view === "list" ? "selected" : ""}">List view</button><button data-view="calendar" class="${this._view === "calendar" ? "selected" : ""}">Calendar</button><button data-view="agenda" class="${this._view === "agenda" ? "selected" : ""}">Schedule agenda</button><button data-view="insights" class="${this._view === "insights" ? "selected" : ""}">Insights</button><button data-view="areas" class="${this._view === "areas" ? "selected" : ""}">Areas</button><button data-view="equipment" class="${this._view === "equipment" ? "selected" : ""}">Equipment</button><button data-view="history" class="${this._view === "history" ? "selected" : ""}">Completions</button><button data-view="schedule-history" class="${this._view === "schedule-history" ? "selected" : ""}">Schedule changes</button></div>
         <div class="maintenance-tools">
           <label>History export
             <select data-export-format>
@@ -745,7 +825,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
           <button data-filter="due_today" class="${this._filter === "due_today" ? "selected" : ""}">Due today</button>
           <button data-filter="upcoming" class="${this._filter === "upcoming" ? "selected" : ""}">Upcoming</button>
         </div>
-        ${this._view === "calendar" ? calendarMarkup : this._view === "agenda" ? this._renderAgenda(tasks, equipment) : this._view === "insights" ? this._renderInsights(insights) : this._view === "equipment" ? this._renderEquipmentView(equipment, tasks) : this._view === "history" ? historyMarkup : this._view === "schedule-history" ? this._renderScheduleHistory(historyTasks) : categoryMarkup}
+        ${this._view === "calendar" ? calendarMarkup : this._view === "agenda" ? this._renderAgenda(tasks, equipment) : this._view === "insights" ? this._renderInsights(insights) : this._view === "areas" ? this._renderAreasView(tasks, equipment) : this._view === "equipment" ? this._renderEquipmentView(equipment, tasks) : this._view === "history" ? historyMarkup : this._view === "schedule-history" ? this._renderScheduleHistory(historyTasks) : categoryMarkup}
         ${this._equipmentTask ? '<div class="active-filter">Showing selected equipment task <button data-clear-task>Clear</button></div>' : ""}
         ${this._view === "list" ? `<div class="task-result-count">Showing ${filtered.length} of ${tasks.length} tasks</div>` : ""}
         ${this._view === "list" ? `<div class="tasks">${taskMarkup}</div>` : ""}
@@ -772,7 +852,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
         .status.overdue{color:var(--error-color)}.status.due_today{color:var(--warning-color)}.status.due_soon{color:var(--primary-color)}
         .task-action-buttons{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.reschedule{border:1px solid var(--divider-color);border-radius:18px;padding:7px 10px;background:var(--card-background-color);color:var(--primary-color);font-size:.78rem;cursor:pointer}.complete{background:var(--success-color,var(--primary-color));color:var(--text-primary-color,#fff);font-size:.78rem}
         section{padding:8px 16px 14px;border-top:1px solid var(--divider-color)}h3{font-size:1rem;margin:8px 0}h3 small{font-weight:400;color:var(--secondary-text-color);margin-left:5px}
-        .equipment-view{padding:8px 16px 16px}.equipment-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:4px 0 14px}.equipment-overview>div{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 5px;border-radius:9px;background:var(--secondary-background-color)}.equipment-overview strong{font-size:1.25rem}.equipment-overview span{font-size:.72rem;color:var(--secondary-text-color);text-align:center} .equipment-card{border:1px solid var(--divider-color);border-radius:10px;padding:12px;margin:10px 0}.equipment-card.selected{border-color:var(--primary-color);box-shadow:0 0 0 1px var(--primary-color)}.equipment-linked-task{border-top:1px solid var(--divider-color);padding-top:5px;margin-top:5px}.equipment-task-open{border:0;background:none;color:var(--primary-color);padding:4px 0;cursor:pointer;font:inherit;font-size:.78rem;text-decoration:underline}.equipment-card-header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.equipment-card-header h3{margin:0 0 3px}.equipment-counts{display:flex;flex-direction:column;align-items:flex-end;gap:4px;white-space:nowrap;font-size:.75rem;color:var(--secondary-text-color)}.equipment-overdue{color:var(--error-color);font-weight:600}.equipment-replacement{font-size:.8rem;margin-top:8px;color:var(--secondary-text-color)}.equipment-linked-tasks{margin-top:6px}.equipment-empty{padding:8px 0}.equipment{display:flex;justify-content:space-between;gap:12px;padding:9px 0;font-size:.88rem;border-bottom:1px solid var(--divider-color)}.equipment-main{min-width:0;width:100%}.equipment-meta,.equipment-lifecycle{font-size:.76rem;color:var(--secondary-text-color);margin-top:3px}.equipment-links{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+        .areas-view{padding:8px 16px 16px}.areas-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:4px 0 12px}.areas-overview>div{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 5px;border-radius:9px;background:var(--secondary-background-color)}.areas-overview strong{font-size:1.25rem}.areas-overview span,.areas-note,.area-card-heading>div>span{font-size:.75rem;color:var(--secondary-text-color)}.areas-note{line-height:1.45;margin:0 0 12px}.area-card{border:1px solid var(--divider-color);border-radius:10px;padding:12px;margin:10px 0}.area-card-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.area-card-heading h3{margin:0 0 3px}.area-status{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.area-status span{font-size:.68rem;border-radius:12px;padding:4px 7px;background:var(--secondary-background-color);white-space:nowrap}.area-equipment,.area-tasks{margin-top:12px}.area-equipment h4,.area-tasks h4{font-size:.82rem;margin:0 0 6px}.area-equipment>div{display:flex;gap:6px;flex-wrap:wrap}.area-equipment-item{font-size:.76rem;padding:5px 8px;border-radius:7px;background:var(--secondary-background-color)}.area-task{border-top:1px solid var(--divider-color)}.area-empty{font-size:.8rem;padding:8px 0}.areas-view .task{padding:10px 0}.view-toggle{flex-wrap:wrap}.equipment-view{padding:8px 16px 16px}.equipment-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:4px 0 14px}.equipment-overview>div{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 5px;border-radius:9px;background:var(--secondary-background-color)}.equipment-overview strong{font-size:1.25rem}.equipment-overview span{font-size:.72rem;color:var(--secondary-text-color);text-align:center} .equipment-card{border:1px solid var(--divider-color);border-radius:10px;padding:12px;margin:10px 0}.equipment-card.selected{border-color:var(--primary-color);box-shadow:0 0 0 1px var(--primary-color)}.equipment-linked-task{border-top:1px solid var(--divider-color);padding-top:5px;margin-top:5px}.equipment-task-open{border:0;background:none;color:var(--primary-color);padding:4px 0;cursor:pointer;font:inherit;font-size:.78rem;text-decoration:underline}.equipment-card-header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.equipment-card-header h3{margin:0 0 3px}.equipment-counts{display:flex;flex-direction:column;align-items:flex-end;gap:4px;white-space:nowrap;font-size:.75rem;color:var(--secondary-text-color)}.equipment-overdue{color:var(--error-color);font-weight:600}.equipment-replacement{font-size:.8rem;margin-top:8px;color:var(--secondary-text-color)}.equipment-linked-tasks{margin-top:6px}.equipment-empty{padding:8px 0}.equipment{display:flex;justify-content:space-between;gap:12px;padding:9px 0;font-size:.88rem;border-bottom:1px solid var(--divider-color)}.equipment-main{min-width:0;width:100%}.equipment-meta,.equipment-lifecycle{font-size:.76rem;color:var(--secondary-text-color);margin-top:3px}.equipment-links{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
         footer{border-top:1px solid var(--divider-color);padding:12px 16px;color:var(--secondary-text-color);font-size:.85rem}.empty{padding:16px 0;color:var(--secondary-text-color)}
         @media(max-width:600px){
           .header{padding:14px 14px 8px}.stats{grid-template-columns:repeat(2,minmax(0,1fr));padding:8px 12px 12px}
