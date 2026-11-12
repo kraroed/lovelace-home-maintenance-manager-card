@@ -50,3 +50,44 @@ test('equipment task navigation keys include the integration instance', () => {
   assert.match(source, /this\._taskKey\(attrs, state\.entity_id\) !== this\._equipmentTask/);
   assert.match(source, /state\.attributes\?\.integration_instance \|\| "default"\) === instance/);
 });
+test('renders equipment with linked tasks without referencing attributes before initialization', () => {
+  const equipmentCard = new context.CardUnderTest();
+  const taskState = {
+    entity_id: 'sensor.filter_status',
+    state: 'due_soon',
+    attributes: {
+      task_id: 'filter',
+      integration_instance: 'basement',
+      friendly_name: 'Basement filter',
+      category: 'HVAC',
+    },
+  };
+  equipmentCard.config = { title: 'Test', show_equipment: true, show_history: false };
+  equipmentCard._hass = { states: {}, callService: async () => {} };
+  equipmentCard._view = 'equipment';
+  equipmentCard._discover = () => ({
+    tasks: [{ state: taskState }],
+    summaries: new Map(),
+    historyTasks: [],
+    equipment: [{
+      state: 'Basement furnace',
+      attributes: {
+        equipment_id: 'furnace',
+        integration_instance: 'basement',
+        task_ids: ['filter'],
+        friendly_name: 'Basement furnace',
+        manufacturer: 'Example',
+      },
+    }],
+    insights: {},
+  });
+  equipmentCard._renderCalendar = () => '';
+  equipmentCard._renderHistory = () => '';
+  equipmentCard._renderEquipmentView = () => '<section>Equipment view</section>';
+  equipmentCard._renderTask = () => '<div>Basement filter task</div>';
+  equipmentCard.querySelectorAll = () => [];
+
+  assert.doesNotThrow(() => equipmentCard.render());
+  assert.match(equipmentCard.innerHTML, /Basement furnace/);
+  assert.match(equipmentCard.innerHTML, /Basement filter/);
+});
