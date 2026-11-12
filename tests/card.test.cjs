@@ -84,15 +84,17 @@ test('renders equipment with linked tasks without referencing attributes before 
   equipmentCard._renderCalendar = () => '';
   equipmentCard._renderHistory = () => '';
   equipmentCard._renderEquipmentView = () => '<section>Equipment view</section>';
-  const renderedTasks = [];
-  equipmentCard._renderTask = (item, equipment) => {
-    renderedTasks.push({ item, equipment });
-    return '<div>Basement filter task</div>';
+  equipmentCard._renderTask = () => '<div>Basement filter task</div>';
+  let equipmentViewArgs;
+  equipmentCard._renderEquipmentView = (equipment, tasks) => {
+    equipmentViewArgs = { equipment, tasks };
+    return '<section>Equipment view</section>';
   };
   equipmentCard.querySelectorAll = () => [];
 
   assert.doesNotThrow(() => equipmentCard.render());
-  assert.equal(renderedTasks.length, 1);
-  assert.equal(renderedTasks[0].item, taskState);
-  assert.equal(renderedTasks[0].equipment.equipment_id, 'furnace');
+  assert.equal(equipmentViewArgs.equipment.length, 1);
+  assert.equal(equipmentViewArgs.tasks.length, 1);
+  assert.equal(equipmentViewArgs.equipment[0].attributes.equipment_id, 'furnace');
+  assert.equal(equipmentViewArgs.tasks[0].state, taskState);
 });
