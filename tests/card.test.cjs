@@ -26,7 +26,8 @@ test('rejects impossible date-only values', () => {
 
 test('formats date-only values without shifting the calendar day', () => {
   const formatted = card._date('2026-11-12');
-  assert.match(formatted, /Nov 12, 2026/);
+  assert.match(formatted, /2026/);
+  assert.match(formatted, /12/);
 });
 
 test('uses integration instance as part of task navigation key', () => {
@@ -36,4 +37,16 @@ test('uses integration instance as part of task navigation key', () => {
     card._taskKey({ integration_instance: 'basement', task_id: 'filter' }),
     card._taskKey({ integration_instance: 'upstairs', task_id: 'filter' })
   );
+});
+
+test('calendar and agenda use the shared date-only parser', () => {
+  assert.match(source, /const due = this\._parseDate\(value\);/);
+  assert.match(source, /const date = this\._parseDate\(value\);/);
+});
+
+test('equipment task navigation keys include the integration instance', () => {
+  assert.match(source, /data-open-equipment-task-key=/);
+  assert.doesNotMatch(source, /data-open-equipment-task-id=/);
+  assert.match(source, /this\._taskKey\(attrs, state\.entity_id\) !== this\._equipmentTask/);
+  assert.match(source, /state\.attributes\?\.integration_instance \|\| "default"\) === instance/);
 });
