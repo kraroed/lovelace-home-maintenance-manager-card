@@ -98,3 +98,62 @@ test('renders equipment with linked tasks without referencing attributes before 
   assert.equal(equipmentViewArgs.equipment[0].attributes.equipment_id, 'furnace');
   assert.equal(equipmentViewArgs.tasks[0].state, taskState);
 });
+
+
+test('completion history deduplication is scoped to each integration instance', () => {
+  const historyCard = new context.CardUnderTest();
+  historyCard._historySearch = '';
+  historyCard._historyFrom = '';
+  historyCard._historyTo = '';
+  historyCard._escape = (value) => String(value ?? '');
+  historyCard._date = (value) => String(value ?? '');
+  const completedAt = '2026-11-12T12:00:00+00:00';
+  const sharedRecord = {
+    history_id: 'clean_gutters:2026-11-12T12:00:00+00:00',
+    completed_at: completedAt,
+    notes: '',
+  };
+  const tasks = ['property-one', 'property-two'].map((instance) => ({
+    state: {
+      entity_id: `sensor.${instance}_gutters_status`,
+      attributes: {
+        task_id: 'clean_gutters',
+        integration_instance: instance,
+        friendly_name: 'Clean gutters Status',
+        completion_history: [{ ...sharedRecord }],
+      },
+    },
+  }));
+
+  const html = historyCard._renderHistory(tasks, []);
+  assert.match(html, /Showing 2 of 2 recent completion records/);
+});
+
+test('schedule history deduplication is scoped to each integration instance', () => {
+  const historyCard = new context.CardUnderTest();
+  historyCard._historySearch = '';
+  historyCard._historyFrom = '';
+  historyCard._historyTo = '';
+  historyCard._escape = (value) => String(value ?? '');
+  historyCard._date = (value) => String(value ?? '');
+  const adjustedAt = '2026-11-12T12:00:00+00:00';
+  const tasks = ['property-one', 'property-two'].map((instance) => ({
+    state: {
+      entity_id: `sensor.${instance}_gutters_status`,
+      attributes: {
+        task_id: 'clean_gutters',
+        integration_instance: instance,
+        friendly_name: 'Clean gutters Status',
+        schedule_history: [{
+          adjusted_at: adjustedAt,
+          previous_due: '2026-11-01',
+          next_due: '2026-12-01',
+          reason: 'Moved date',
+        }],
+      },
+    },
+  }));
+
+  const html = historyCard._renderScheduleHistory(tasks);
+  assert.match(html, /Showing 2 of 2 schedule changes/);
+});
