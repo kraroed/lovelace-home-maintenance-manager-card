@@ -38,16 +38,21 @@ The card provides a household maintenance overview with task status, due dates, 
 
 The card calls the integration's `complete_task`, `reschedule_task`, `export_history`, and `create_backup` services. Annual/monthly schedule details and equipment lifecycle metadata are displayed when exposed by the installed integration sensor entities. Mobile notification actions (Mark complete, Tomorrow, and In 1 week) remain managed by the integration's notification system. The card is a frontend companion and does not replace the integration.
 
-## Install with HACS
+## Install from the HACS Marketplace
 
 1. Open **HACS** in Home Assistant.
-2. Open the three-dot menu and choose **Custom repositories**.
-3. Add `https://github.com/kraroed/lovelace-home-maintenance-manager-card`.
-4. Select **Dashboard** as the category, then add the repository.
-5. Find **Home Maintenance Manager Card** in HACS and download it.
-6. Reload your browser if the card does not appear immediately.
+2. Open the **Marketplace** and select the **Dashboard** category.
+3. Search for **Home Maintenance Manager Card**.
+4. Open the card listing and select **Download**.
+5. Reload your browser if the card does not appear immediately.
 
-HACS installs the JavaScript module and registers the dashboard resource. When installed through HACS, use the `/hacsfiles/` resource path only if you need to add it manually; normally HACS handles registration.
+HACS normally registers the dashboard resource automatically. If you need to add the resource manually, use the `/hacsfiles/` path shown by HACS.
+
+If the card does not appear in Marketplace search, confirm that HACS is up to date and that the repository is available to your HACS installation. As a fallback, add `https://github.com/kraroed/lovelace-home-maintenance-manager-card` through HACS **Custom repositories** with the **Dashboard** category.
+
+## Update
+
+Open **HACS → Marketplace → Dashboard**, find **Home Maintenance Manager Card**, and install the available update. Reload the browser if the updated card does not appear immediately.
 
 ## Add the card to a dashboard
 
