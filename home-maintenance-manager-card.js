@@ -378,7 +378,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
         ? linked.find(({ state }) => state.attributes?.task_id === attrs.replacement_task_id)
         : null;
       const taskMarkup = linked.length
-        ? linked.map((item) => `<div class="equipment-linked-task">${this._renderTask(item, equipment)}<button class="equipment-task-open" data-open-equipment-task-id="${this._escape(item.state.attributes?.task_id)}">Open in task list</button></div>`).join("")
+        ? linked.map((item) => `<div class="equipment-linked-task">${this._renderTask(item, equipment)}<button class="equipment-task-open" data-open-equipment-task-key="${this._escape(this._taskKey(item.state.attributes, item.state.entity_id))}">Open in task list</button></div>`).join("")
         : '<div class="empty equipment-empty">No active maintenance tasks are linked to this equipment.</div>';
       return `
         <article class="equipment-card ${this._selectedEquipmentId === `${instance}:${attrs.equipment_id}` ? "selected" : ""}" data-equipment-card="${this._escape(`${instance}:${attrs.equipment_id}`)}">
@@ -788,7 +788,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
       ? equipment.map((item) => {
         const ids = item.attributes.task_ids || [];
         const linked = tasks.filter(({ state }) => ids.includes(state.attributes.task_id));
-        const links = linked.length ? linked.map(({ state }) => '<button class="equipment-task" data-open-equipment-task-id="' + this._escape(state.attributes.task_id) + '">' + this._escape((state.attributes.friendly_name || state.entity_id).replace(/ Status$/, "")) + '</button>').join("") : '<span class="muted">No linked tasks</span>';
+        const links = linked.length ? linked.map(({ state }) => '<button class="equipment-task" data-open-equipment-task-id="' + this._escape(this._taskKey(state.attributes, state.entity_id)) + '">' + this._escape((state.attributes.friendly_name || state.entity_id).replace(/ Status$/, "")) + '</button>').join("") : '<span class="muted">No linked tasks</span>';
         const attrs = item.attributes || {};
         const metadata = [attrs.manufacturer, attrs.model].filter(Boolean).join(" ");
         const lifecycle = [];
@@ -968,8 +968,8 @@ class HomeMaintenanceManagerCard extends HTMLElement {
       this._detailTaskKey = this._detailTaskKey === button.dataset.details ? null : button.dataset.details;
       this.render();
     }));
-    this.querySelectorAll("[data-open-equipment-task-id]").forEach((button) => button.addEventListener("click", () => {
-      this._equipmentTask = button.dataset.openEquipmentTaskId;
+    this.querySelectorAll("[data-open-equipment-task-key]").forEach((button) => button.addEventListener("click", () => {
+      this._equipmentTask = button.dataset.openEquipmentTaskKey;
       this._category = "all";
       this._filter = "all";
       this._taskSearch = "";
