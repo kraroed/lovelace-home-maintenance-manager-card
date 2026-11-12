@@ -258,6 +258,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
         )).filter(Boolean).map((entry) => entry.attributes.friendly_name || entry.state);
         records.push({...record,
           integration_instance: attrs.integration_instance || "default",
+          property_name: attrs.property_name || attrs.integration_instance || "default",
           task_id: attrs.task_id,
           task_name: record.task_name || (attrs.friendly_name || state.entity_id).replace(/ Status$/, ""),
           equipment_names: names});
@@ -269,7 +270,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     ])).values()]
       .sort((a,b) => new Date(b.completed_at) - new Date(a.completed_at));
     const filtered = unique.filter((record) => {
-      const haystack = [record.task_name, record.task_id, record.notes, ...(record.equipment_names || [])].join(" ").toLowerCase();
+      const haystack = [record.property_name, record.task_name, record.task_id, record.notes, ...(record.equipment_names || [])].join(" ").toLowerCase();
       if (this._historySearch && !haystack.includes(this._historySearch.toLowerCase())) return false;
       const day = (record.completed_at || "").slice(0,10);
       return (!this._historyFrom || day >= this._historyFrom) && (!this._historyTo || day <= this._historyTo);
@@ -277,7 +278,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     const rows = filtered.length ? filtered.map((record) => `
       <article class="history-record">
         <div class="history-record-heading"><strong>${this._escape(record.task_name)}</strong><span>${this._escape(this._date(record.completed_at))}</span></div>
-        <div class="history-property" title="Integration instance: ${this._escape(record.integration_instance)}">Property · ${this._escape(record.integration_instance)}</div>
+        <div class="history-property" title="Property: ${this._escape(record.property_name)} · Instance: ${this._escape(record.integration_instance)}">Property · ${this._escape(record.property_name)}</div>
         ${record.equipment_names?.length ? `<div class="history-meta">Equipment: ${this._escape(record.equipment_names.join(", "))}</div>` : ""}
         ${record.notes ? `<p>${this._escape(record.notes)}</p>` : ""}
       </article>`).join("") : '<div class="empty">No completion records match these filters.</div>';
@@ -302,6 +303,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
         records.push({
           ...record,
           integration_instance: attrs.integration_instance || "default",
+          property_name: attrs.property_name || attrs.integration_instance || "default",
           task_id: attrs.task_id,
           task_name: (attrs.friendly_name || state.entity_id).replace(/ Status$/, ""),
           record_key: `${attrs.integration_instance || "default"}:${record.history_id || `${attrs.task_id}:${record.adjusted_at || record.next_due || index}`}`,
@@ -312,7 +314,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
       .sort((a, b) => new Date(b.adjusted_at) - new Date(a.adjusted_at));
     const filtered = unique.filter((record) => {
       const haystack = [
-        record.task_name, record.task_id, record.reason, record.change_type,
+        record.property_name, record.task_name, record.task_id, record.reason, record.change_type,
         record.previous_schedule?.schedule_type, record.new_schedule?.schedule_type,
       ].join(" ").toLowerCase();
       if (this._historySearch && !haystack.includes(this._historySearch.toLowerCase())) return false;
@@ -345,7 +347,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
       const configuration = record.change_type === "configuration" || record.previous_schedule || record.new_schedule;
       return `<article class="history-record schedule-history-record">
         <div class="history-record-heading"><strong>${this._escape(record.task_name)}</strong><span>${this._escape(this._date(record.adjusted_at))}</span></div>
-        <div class="history-property" title="Integration instance: ${this._escape(record.integration_instance)}">Property · ${this._escape(record.integration_instance)}</div>
+        <div class="history-property" title="Property: ${this._escape(record.property_name)} · Instance: ${this._escape(record.integration_instance)}">Property · ${this._escape(record.property_name)}</div>
         <div class="schedule-change-kind">${configuration ? "Schedule configuration changed" : "Due date rescheduled"}</div>
         ${configuration ? `<div class="schedule-comparison"><div><span>Previous schedule</span><strong>${this._escape(scheduleLabel(record.previous_schedule))}</strong></div><div><span>New schedule</span><strong>${this._escape(scheduleLabel(record.new_schedule))}</strong></div></div>` : ""}
         <div class="schedule-due-comparison"><span>Due date: ${this._escape(this._date(record.previous_due))} → ${this._escape(this._date(record.next_due))}</span></div>
