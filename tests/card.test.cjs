@@ -227,3 +227,56 @@ test('reschedule request rejects invalid dates before calling Home Assistant', (
   });
   assert.equal(request, null);
 });
+
+
+test('completion history displays friendly property name and retains instance identity', () => {
+  const historyCard = new context.CardUnderTest();
+  historyCard._historySearch = '';
+  historyCard._historyFrom = '';
+  historyCard._historyTo = '';
+  const html = historyCard._renderHistory([{
+    state: {
+      entity_id: 'sensor.gutters_status',
+      attributes: {
+        task_id: 'clean_gutters',
+        friendly_name: 'Clean gutters Status',
+        integration_instance: 'property-two',
+        property_name: 'Primary Residence',
+        completion_history: [{
+          history_id: 'completion-1',
+          task_id: 'clean_gutters',
+          completed_at: '2026-11-12T12:00:00Z',
+        }],
+      },
+    },
+  }], []);
+  assert.match(html, /Property · Primary Residence/);
+  assert.match(html, /Instance: property-two/);
+});
+
+test('schedule history displays friendly property name and retains instance identity', () => {
+  const historyCard = new context.CardUnderTest();
+  historyCard._historySearch = '';
+  historyCard._historyFrom = '';
+  historyCard._historyTo = '';
+  const html = historyCard._renderScheduleHistory([{
+    state: {
+      entity_id: 'sensor.gutters_status',
+      attributes: {
+        task_id: 'clean_gutters',
+        friendly_name: 'Clean gutters Status',
+        integration_instance: 'property-two',
+        property_name: 'Primary Residence',
+        schedule_history: [{
+          history_id: 'schedule-1',
+          adjusted_at: '2026-11-12T12:00:00Z',
+          previous_due: '2026-11-15',
+          next_due: '2026-11-20',
+          reason: 'Weather',
+        }],
+      },
+    },
+  }]);
+  assert.match(html, /Property · Primary Residence/);
+  assert.match(html, /Instance: property-two/);
+});
