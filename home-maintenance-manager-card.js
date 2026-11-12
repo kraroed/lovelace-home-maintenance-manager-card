@@ -863,7 +863,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
           .task-action-buttons button,.task-inline-form-actions button{min-height:40px}
           .task-inline-form{width:100%;max-width:none}.task-inline-form-actions{display:grid;grid-template-columns:1fr 1fr}
           .task-details{grid-template-columns:minmax(0,1fr);gap:10px;padding:12px}.task-details>div,.task-details>div:not(.history-list){min-width:0}
-          .history-view,.equipment-view,.agenda-section{padding-left:12px;padding-right:12px}
+          .history-view,.equipment-view,.agenda-section,.areas-view{padding-left:12px;padding-right:12px}.area-card-heading{flex-direction:column}.area-status{justify-content:flex-start}
           .history-controls{grid-template-columns:minmax(0,1fr)}.history-controls>input{grid-column:auto}
           .schedule-comparison{grid-template-columns:minmax(0,1fr)}
           .equipment-card-header{flex-direction:column}.equipment-counts{align-items:flex-start;flex-direction:row;flex-wrap:wrap;white-space:normal}
@@ -872,7 +872,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
           .calendar-toolbar{gap:6px;flex-wrap:wrap}.calendar-toolbar strong{min-width:0;flex:1 1 100%;order:-1}
         }
         @media(max-width:360px){
-          .agenda-overview,.equipment-overview{grid-template-columns:minmax(0,1fr)}
+          .agenda-overview,.equipment-overview,.areas-overview{grid-template-columns:minmax(0,1fr)}
           .task-action-buttons{grid-template-columns:minmax(0,1fr)}
           .history-record-heading{flex-direction:column;gap:3px}
           .calendar-day{min-height:48px}.calendar-weekday{font-size:.65rem}
