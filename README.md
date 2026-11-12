@@ -13,7 +13,8 @@ The card provides a household maintenance overview with task status, due dates, 
 - List view with status filters and dynamically generated category filters.
 - Bidirectional equipment/task navigation: open linked tasks from equipment records or jump from a task’s details to its equipment record.
 - Monthly calendar view with previous/next month navigation, a Today shortcut, and selectable dates.
-- Schedule agenda view grouping overdue maintenance, upcoming tasks for the next 90 days, and seasonal tasks scheduled within the next 12 months.\n- Insights view with rolling completion totals, on-time and late completion rates, completion totals by category, upcoming workload, and a daily overdue-backlog trend (requires integration v0.12.0 or newer).
+- Schedule agenda view grouping overdue maintenance, upcoming tasks for the next 90 days, and seasonal tasks scheduled within the next 12 months.
+- Insights view with rolling completion totals, on-time and late completion rates, completion totals by category, upcoming workload, and a daily overdue-backlog trend (requires integration v0.12.0 or newer).
 - Dedicated equipment view with equipment details, linked maintenance tasks, task status, overdue counts, and replacement scheduling information.
 - Completion history view with search and completion-date filters.
 - Dedicated schedule changes view showing configuration changes and manual reschedules, including previous/new schedule definitions, due dates, timestamps, and reasons.
