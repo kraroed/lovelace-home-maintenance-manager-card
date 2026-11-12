@@ -17,8 +17,8 @@ The card provides a household maintenance overview with task status, due dates, 
 - Insights view with rolling completion totals, on-time and late completion rates, completion totals by category, upcoming workload, and a daily overdue-backlog trend (requires integration v0.12.0 or newer).
 - Areas view grouping equipment and maintenance tasks by Home Assistant area, with per-area overdue, due-today, and upcoming counts (requires Home Maintenance Manager integration v0.13.0 or newer).
 - Dedicated equipment view with equipment details, linked maintenance tasks, task status, overdue counts, and replacement scheduling information.
-- Completion history view with search and completion-date filters.
-- Dedicated schedule changes view showing configuration changes and manual reschedules, including previous/new schedule definitions, due dates, timestamps, and reasons.
+- Completion history view with search and completion-date filters, including friendly property names (requires integration v0.15.0 or newer).
+- Dedicated schedule changes view showing configuration changes and manual reschedules, including previous/new schedule definitions, due dates, timestamps, reasons, and friendly property names (requires integration v0.15.0 or newer).
 - Task details with inspection guides: how to inspect, what to look for, what to do if something is wrong, and safety precautions.
 - Clear schedule descriptions for interval, seasonal, annual month/day, and monthly weekday-pattern tasks.
 - Equipment records with installation dates, expected lifespan, replacement due dates, and links to maintenance tasks when the integration exposes those lifecycle attributes.
@@ -36,7 +36,7 @@ The card provides a household maintenance overview with task status, due dates, 
 - The [Home Maintenance Manager integration](https://github.com/kraroed/home-maintenance-manager) installed and configured.
 - HACS, or manual installation.
 
-The card calls the integration's `complete_task`, `reschedule_task`, `export_history`, and `create_backup` services. Annual/monthly schedule details and equipment lifecycle metadata are displayed when exposed by the installed integration sensor entities. Mobile notification actions (Mark complete, Tomorrow, and In 1 week) remain managed by the integration's notification system. The card is a frontend companion and does not replace the integration.
+The card calls the integration's `complete_task`, `reschedule_task`, `export_history`, and `create_backup` services. Annual/monthly schedule details and equipment lifecycle metadata are displayed when exposed by the installed integration sensor entities. Friendly property names in completion and schedule history are provided by integration v0.15.0 and newer; older integration versions fall back to the technical property identifier. Mobile notification actions (Mark complete, Tomorrow, and In 1 week) remain managed by the integration's notification system. The card is a frontend companion and does not replace the integration.
 
 ## Install from the HACS Marketplace
 
