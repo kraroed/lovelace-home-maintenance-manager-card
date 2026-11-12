@@ -256,12 +256,17 @@ class HomeMaintenanceManagerCard extends HTMLElement {
           entry.attributes.equipment_id === id &&
           (entry.attributes.integration_instance || "default") === (attrs.integration_instance || "default")
         )).filter(Boolean).map((entry) => entry.attributes.friendly_name || entry.state);
-        records.push({...record, task_id: attrs.task_id,
+        records.push({...record,
+          integration_instance: attrs.integration_instance || "default",
+          task_id: attrs.task_id,
           task_name: record.task_name || (attrs.friendly_name || state.entity_id).replace(/ Status$/, ""),
           equipment_names: names});
       });
     });
-    const unique = [...new Map(records.map((record) => [record.history_id || `${record.task_id}:${record.completed_at}`, record])).values()]
+    const unique = [...new Map(records.map((record) => [
+      `${record.integration_instance}:${record.history_id || `${record.task_id}:${record.completed_at}`}`,
+      record,
+    ])).values()]
       .sort((a,b) => new Date(b.completed_at) - new Date(a.completed_at));
     const filtered = unique.filter((record) => {
       const haystack = [record.task_name, record.task_id, record.notes, ...(record.equipment_names || [])].join(" ").toLowerCase();
@@ -295,9 +300,10 @@ class HomeMaintenanceManagerCard extends HTMLElement {
       (attrs.schedule_history || []).forEach((record, index) => {
         records.push({
           ...record,
+          integration_instance: attrs.integration_instance || "default",
           task_id: attrs.task_id,
           task_name: (attrs.friendly_name || state.entity_id).replace(/ Status$/, ""),
-          record_key: record.history_id || `${attrs.task_id}:${record.adjusted_at || record.next_due || index}`,
+          record_key: `${attrs.integration_instance || "default"}:${record.history_id || `${attrs.task_id}:${record.adjusted_at || record.next_due || index}`}`,
         });
       });
     });
