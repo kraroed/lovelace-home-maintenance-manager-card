@@ -284,7 +284,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
       </article>`).join("") : '<div class="empty">No completion records match these filters.</div>';
     return `<section class="history-view">
       <div class="history-controls">
-        <input type="search" data-history-search placeholder="Search task, equipment, or notes" value="${this._escape(this._historySearch)}">
+        <input type="search" data-history-search placeholder="Search property, task, equipment, or notes" value="${this._escape(this._historySearch)}">
         <label>From <input type="date" data-history-from value="${this._escape(this._historyFrom)}"></label>
         <label>To <input type="date" data-history-to value="${this._escape(this._historyTo)}"></label>
         <button data-history-clear>Clear filters</button>
@@ -356,7 +356,7 @@ class HomeMaintenanceManagerCard extends HTMLElement {
     }).join("") : '<div class="empty">No schedule changes match these filters.</div>';
     return `<section class="history-view">
       <div class="history-controls">
-        <input type="search" data-history-search placeholder="Search task or change reason" value="${this._escape(this._historySearch)}">
+        <input type="search" data-history-search placeholder="Search property, task, or change reason" value="${this._escape(this._historySearch)}">
         <label>From <input type="date" data-history-from value="${this._escape(this._historyFrom)}"></label>
         <label>To <input type="date" data-history-to value="${this._escape(this._historyTo)}"></label>
         <button data-history-clear>Clear filters</button>
