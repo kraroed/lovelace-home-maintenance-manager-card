@@ -229,6 +229,17 @@ test('reschedule request rejects invalid dates before calling Home Assistant', (
 });
 
 
+test('completion and schedule history search prompts mention property names', () => {
+  const historyCard = new context.CardUnderTest();
+  historyCard._historySearch = '';
+  historyCard._historyFrom = '';
+  historyCard._historyTo = '';
+  const completionHtml = historyCard._renderHistory([], []);
+  const scheduleHtml = historyCard._renderScheduleHistory([]);
+  assert.match(completionHtml, /placeholder="Search property, task, equipment, or notes"/);
+  assert.match(scheduleHtml, /placeholder="Search property, task, or change reason"/);
+});
+
 test('completion history displays friendly property name and retains instance identity', () => {
   const historyCard = new context.CardUnderTest();
   historyCard._historySearch = '';
