@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+## 1.8.1
+
+### Usability
+- Clarify that completion and schedule history search supports property names.
+
+### Testing
+- Add regression coverage for the property-name search prompts.
+
 ## 1.8.0
 
 ### Improvements
